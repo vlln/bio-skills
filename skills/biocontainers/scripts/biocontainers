@@ -1,0 +1,519 @@
+#!/usr/bin/env python3
+"""
+Biocontainers CLI - Unix-style command for Biocontainers Registry API
+
+Usage:
+    biocontainers search <query> [options]    Search containers
+    biocontainers inspect <tool>[:<ver>]      Show container or version details
+    biocontainers versions <tool>             List all versions of a tool
+    biocontainers help                        Show this help message
+
+Examples:
+    biocontainers search bwa
+    biocontainers search aligner --limit 10
+    biocontainers inspect samtools
+    biocontainers inspect bwa:0.7.17
+    biocontainers versions blast
+"""
+
+import sys
+import os
+import json
+import urllib.request
+import urllib.parse
+from typing import Optional, Dict, Any, List, Tuple
+
+DEFAULT_API_URL = "https://api.biocontainers.pro/ga4gh/trs/v2"
+DEFAULT_LIMIT = 25
+
+
+class Colors:
+    """ANSI color codes."""
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+    @classmethod
+    def enabled(cls) -> bool:
+        """Check if colors should be enabled."""
+        return sys.stdout.isatty() and os.environ.get('NO_COLOR') is None
+
+
+def colorize(text: str, color: str) -> str:
+    """Apply color to text if colors are enabled."""
+    if Colors.enabled():
+        return f"{color}{text}{Colors.END}"
+    return text
+
+
+def get_terminal_width() -> int:
+    """Get terminal width, fallback to 80."""
+    try:
+        import shutil
+        return shutil.get_terminal_size().columns
+    except Exception:
+        return 80
+
+
+def draw_table(
+    headers: List[str], 
+    rows: List[List[str]], 
+    max_width: Optional[int] = None,
+    align: Optional[List[str]] = None,
+    style: str = "simple"
+) -> None:
+    """Draw a formatted table with auto-width columns and text wrapping.
+    
+    Args:
+        headers: List of column headers
+        rows: List of rows, each row is a list of strings
+        max_width: Maximum total width (None = auto-detect terminal width)
+        align: List of alignment for each column ('l'=left, 'r'=right, 'c'=center)
+        style: Table style ('simple', 'grid', 'minimal')
+    """
+    if not rows:
+        print("(no data)")
+        return
+    
+    # Auto-detect terminal width
+    if max_width is None:
+        max_width = get_terminal_width() - 2  # Leave some margin
+    
+    num_cols = len(headers)
+    align = align or ['l'] * num_cols  # Default left align
+    
+    # Calculate max width for each column
+    col_widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row[:num_cols]):
+            col_widths[i] = max(col_widths[i], len(str(cell)))
+    
+    # Calculate padding based on style
+    padding = 1 if style == "minimal" else 2
+    separator = " " if style == "minimal" else " │ " if style == "grid" else "  "
+    sep_len = len(separator)
+    
+    # Truncate if too wide (prioritize last column)
+    total_width = sum(col_widths) + sep_len * (num_cols - 1)
+    while total_width > max_width and sum(col_widths) > num_cols * 8:
+        # Find widest column (excluding already minimized ones)
+        widest = max(range(num_cols), key=lambda i: col_widths[i] if col_widths[i] > 8 else 0)
+        if col_widths[widest] > 8:
+            col_widths[widest] -= 1
+            total_width = sum(col_widths) + sep_len * (num_cols - 1)
+        else:
+            break
+    
+    # Wrap text for each cell
+    def wrap_cell(text: str, width: int) -> List[str]:
+        """Wrap text to fit within width."""
+        text = str(text)
+        if len(text) <= width:
+            return [text]
+        
+        lines = []
+        while text:
+            if len(text) <= width:
+                lines.append(text)
+                break
+            # Find break point at word boundary
+            break_point = width
+            while break_point > width // 2 and text[break_point] not in ' /-_.':
+                break_point -= 1
+            if break_point <= width // 2:
+                break_point = width
+            lines.append(text[:break_point])
+            text = text[break_point:].lstrip(' /-_.')
+        return lines
+    
+    def format_cell(text: str, width: int, align_char: str) -> str:
+        """Format cell with alignment."""
+        if align_char == 'r':
+            return text.rjust(width)
+        elif align_char == 'c':
+            return text.center(width)
+        return text.ljust(width)
+    
+    # Prepare all rows with wrapped cells
+    wrapped_rows = []
+    for row in rows:
+        wrapped_cells = [wrap_cell(str(cell), col_widths[i]) for i, cell in enumerate(row[:num_cols])]
+        max_lines = max(len(cell) for cell in wrapped_cells)
+        
+        # Pad cells to same number of lines
+        for cell in wrapped_cells:
+            while len(cell) < max_lines:
+                cell.append("")
+        
+        wrapped_rows.append(wrapped_cells)
+    
+    # Prepare header
+    header_lines = [wrap_cell(str(headers[i]), col_widths[i]) for i in range(num_cols)]
+    max_header_lines = max(len(h) for h in header_lines)
+    for h in header_lines:
+        while len(h) < max_header_lines:
+            h.append("")
+    
+    # Draw top border for grid style
+    if style == "grid":
+        top = "┌" + "┬".join("─" * (w + 2) for w in col_widths) + "┐"
+        print(colorize(top, Colors.BOLD))
+    
+    # Print header
+    for line_idx in range(max_header_lines):
+        parts = []
+        for col_idx in range(num_cols):
+            text = header_lines[col_idx][line_idx]
+            formatted = format_cell(text, col_widths[col_idx], 'l')
+            if line_idx == 0:  # First line of header is bold
+                formatted = colorize(formatted, Colors.BOLD + Colors.CYAN)
+            parts.append(formatted)
+        
+        if style == "grid":
+            print("│ " + " │ ".join(parts) + " │")
+        else:
+            print(separator.join(parts))
+    
+    # Print separator
+    if style == "grid":
+        mid = "├" + "┼".join("─" * (w + 2) for w in col_widths) + "┤"
+        print(colorize(mid, Colors.BOLD))
+    else:
+        sep_char = "─" if style == "simple" else "-"
+        # Calculate actual width of printed content
+        sample_parts = ["x" * col_widths[i] for i in range(num_cols)]
+        actual_width = len(separator.join(sample_parts))
+        print(colorize(sep_char * actual_width, Colors.BOLD))
+    
+    # Print rows
+    for wrapped_cells in wrapped_rows:
+        max_lines = len(wrapped_cells[0])
+        for line_idx in range(max_lines):
+            parts = []
+            for col_idx in range(num_cols):
+                text = wrapped_cells[col_idx][line_idx]
+                formatted = format_cell(text, col_widths[col_idx], align[col_idx])
+                parts.append(formatted)
+            
+            if style == "grid":
+                print("│ " + " │ ".join(parts) + " │")
+            else:
+                print(separator.join(parts))
+    
+    # Draw bottom border for grid style
+    if style == "grid":
+        bottom = "└" + "┴".join("─" * (w + 2) for w in col_widths) + "┘"
+        print(colorize(bottom, Colors.BOLD))
+
+
+def get_api_url() -> str:
+    """Get API URL from environment or use default."""
+    return os.environ.get("BIOCONTAINERS_API_URL", DEFAULT_API_URL)
+
+
+def api_request(endpoint: str, params: Optional[Dict[str, str]] = None) -> Any:
+    """Make API request and return parsed JSON."""
+    base_url = get_api_url().rstrip("/")
+    url = f"{base_url}/{endpoint.lstrip('/')}"
+
+    if params:
+        query_string = urllib.parse.urlencode(params)
+        url = f"{url}?{query_string}"
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "biocontainers-cli/1.0"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        print(f"Error: HTTP {e.code} - {e.reason}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"Error: Failed to connect to API - {e.reason}", file=sys.stderr)
+        sys.exit(1)
+    except TimeoutError:
+        print("Error: API request timed out (30s). The server may be slow or unavailable.", file=sys.stderr)
+        print("Tip: Please retry the command.", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON response from API", file=sys.stderr)
+        sys.exit(1)
+
+
+def parse_search_args(args: List[str]) -> Tuple[Optional[str], int]:
+    """Parse search command arguments: query [--limit n]."""
+    if not args:
+        return None, DEFAULT_LIMIT
+
+    query = args[0]
+    limit = DEFAULT_LIMIT
+
+    i = 1
+    while i < len(args):
+        if args[i] == "--limit":
+            if i + 1 >= len(args):
+                print("Error: --limit requires a value", file=sys.stderr)
+                sys.exit(1)
+            try:
+                limit = int(args[i + 1])
+            except ValueError:
+                print(f"Error: Invalid limit value '{args[i + 1]}'", file=sys.stderr)
+                sys.exit(1)
+            if limit < 1:
+                print("Error: --limit must be greater than 0", file=sys.stderr)
+                sys.exit(1)
+            i += 2
+        else:
+            print(f"Error: Unknown option '{args[i]}'", file=sys.stderr)
+            print("Usage: biocontainers search <query> [--limit <n>]", file=sys.stderr)
+            sys.exit(1)
+
+    return query, limit
+
+
+def cmd_search(args: List[str]) -> None:
+    """Search containers by keyword (like docker search)."""
+    query, limit = parse_search_args(args)
+
+    if not query:
+        print("Error: Search query required", file=sys.stderr)
+        print("Usage: biocontainers search <query> [--limit <n>]", file=sys.stderr)
+        sys.exit(1)
+
+    params = {"all_fields_search": query}
+    results = api_request("/tools", params)
+
+    if not isinstance(results, list) or not results:
+        print(f"No containers found for '{query}'")
+        return
+
+    total = len(results)
+    if limit and limit < total:
+        results = results[:limit]
+        showing = f" (showing first {limit})"
+    else:
+        showing = ""
+
+    # Build table data
+    rows = []
+    for tool in results:
+        name = tool.get("name") or tool.get("id", "N/A")
+        description = tool.get("description", "No description")
+        rows.append([name, description])
+
+    draw_table(["NAME", "DESCRIPTION"], rows, max_width=100, style="simple")
+
+    print(f"\nFound {total} result(s){showing}")
+
+
+def extract_version(version_id: str, tool_name: str) -> str:
+    """Extract version number from version ID."""
+    if version_id.startswith(f"{tool_name}-"):
+        return version_id[len(tool_name)+1:]
+    return version_id
+
+
+def cmd_inspect(tool_spec: str) -> None:
+    """Inspect container details (like docker inspect).
+    
+    Supports:
+      biocontainers inspect <tool>          # inspect tool
+      biocontainers inspect <tool>:<ver>    # inspect specific version
+    """
+    # Parse tool:version format
+    if ":" in tool_spec:
+        tool_name, version = tool_spec.split(":", 1)
+        cmd_inspect_version(tool_name, version)
+        return
+
+    tool_name = tool_spec
+    tool = api_request(f"/tools/{tool_name}")
+
+    if not tool:
+        print(f"Container '{tool_name}' not found")
+        sys.exit(1)
+
+    print(f"Name:         {tool.get('name') or tool.get('id', tool_name)}")
+    print(f"Description:  {tool.get('description', 'No description')}")
+    print(f"Organization: {tool.get('organization', 'N/A')}")
+    print(f"License:      {tool.get('license', 'Unknown')}")
+    # Try tool_url first (actual homepage), then fall back to API url
+    homepage = tool.get('tool_url') or tool.get('homepage') or tool.get('url', 'N/A')
+    print(f"Homepage:     {homepage}")
+
+    if tool.get("tags"):
+        print(f"Tags:         {', '.join(tool['tags'])}")
+
+    versions = api_request(f"/tools/{tool_name}/versions")
+    if versions:
+        print(f"Versions:     {len(versions)}")
+        latest_id = versions[0].get("id", "N/A")
+        latest_ver = extract_version(latest_id, tool_name)
+        print(f"Latest:       {latest_ver}")
+        
+        # Find latest update time from images
+        latest_update = None
+        if versions[0].get("images"):
+            for img in versions[0]["images"]:
+                if img.get("updated"):
+                    from datetime import datetime
+                    try:
+                        update_time = datetime.fromisoformat(img["updated"].replace('Z', '+00:00'))
+                        if latest_update is None or update_time > latest_update:
+                            latest_update = update_time
+                    except ValueError:
+                        pass
+        if latest_update:
+            print(f"Last Update:  {latest_update.strftime('%Y-%m-%d')}")
+
+
+def cmd_inspect_version(tool_name: str, version: str) -> None:
+    """Inspect a specific version of a tool."""
+    # API uses full version ID like "bwa-0.7.17"
+    version_id = f"{tool_name}-{version}"
+    
+    version_info = api_request(f"/tools/{tool_name}/versions/{version_id}")
+
+    if not version_info:
+        print(f"Version '{version}' not found for tool '{tool_name}'", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Tool:         {tool_name}")
+    print(f"Version:      {version}")
+    print(f"URL:          {version_info.get('url', 'N/A')}")
+    
+    if version_info.get("images"):
+        print(f"\nImages ({len(version_info['images'])}):")
+        
+        # Build table data with update time
+        rows = []
+        for img in version_info["images"]:
+            img_type = img.get("image_type", "unknown")
+            registry = img.get("registry_host", "-")
+            size = img.get("size", 0)
+            size_str = f"{size / (1024 * 1024):.1f} MB" if size else "-"
+            image_name = img.get("image_name", "-")
+            
+            # Format update time
+            updated = img.get("updated", "-")
+            if updated and updated != "-":
+                try:
+                    from datetime import datetime
+                    update_time = datetime.fromisoformat(updated.replace('Z', '+00:00'))
+                    updated = update_time.strftime('%Y-%m-%d')
+                except ValueError:
+                    pass
+            
+            rows.append([img_type, registry, size_str, updated, image_name])
+        
+        draw_table(["TYPE", "REGISTRY", "SIZE", "UPDATED", "IMAGE"], rows, max_width=120, style="simple")
+    
+    if version_info.get("descriptor_type"):
+        print(f"\nDescriptor Types: {', '.join(version_info['descriptor_type'])}")
+    
+    if version_info.get("containerfile"):
+        print(f"Containerfile: Available")
+    
+    if version_info.get("verified"):
+        print(f"Verified: Yes")
+        if version_info.get("verified_source"):
+            print(f"Verified By: {', '.join(version_info['verified_source'])}")
+
+
+def cmd_versions(tool_name: str) -> None:
+    """List all versions of a tool (like docker images shows tags)."""
+    versions = api_request(f"/tools/{tool_name}/versions")
+
+    if not versions:
+        print(f"No versions found for '{tool_name}'")
+        return
+
+    print(f"REPOSITORY: {tool_name}\n")
+
+    # Build table data
+    rows = []
+    for version in versions:
+        tag = extract_version(version.get("id", "N/A"), tool_name)
+
+        # Count images by type
+        counts = {"Docker": 0, "Conda": 0, "Singularity": 0}
+        if version.get("images"):
+            for img in version["images"]:
+                img_type = img.get("image_type", "unknown")
+                if img_type in counts:
+                    counts[img_type] += 1
+
+        docker = str(counts["Docker"]) if counts["Docker"] else "-"
+        conda = str(counts["Conda"]) if counts["Conda"] else "-"
+        singularity = str(counts["Singularity"]) if counts["Singularity"] else "-"
+        
+        rows.append([tag, docker, conda, singularity])
+
+    draw_table(["TAG", "DOCKER", "CONDA", "SINGULARITY"], rows, max_width=60, style="simple")
+
+
+def cmd_help() -> None:
+    """Show help message."""
+    print(__doc__)
+
+
+def main() -> None:
+    """Main entry point - command dispatch."""
+    if len(sys.argv) < 2:
+        cmd_help()
+        sys.exit(1)
+
+    command = sys.argv[1]
+    args = sys.argv[2:]
+
+    commands = {
+        "search": (cmd_search, 0, "Usage: biocontainers search <query> [--limit <n>]"),
+        "inspect": (cmd_inspect, 1, "Usage: biocontainers inspect <tool>[:<ver>]"),
+        "versions": (cmd_versions, 1, "Usage: biocontainers versions <tool>"),
+        "help": (cmd_help, 0, None),
+    }
+
+    if command not in commands:
+        print(f"Unknown command: {command}", file=sys.stderr)
+        print("Run 'biocontainers help' for usage information", file=sys.stderr)
+        sys.exit(1)
+
+    func, min_args, usage_msg = commands[command]
+
+    if command == "search":
+        if not args:
+            print(f"Error: Missing arguments for '{command}'", file=sys.stderr)
+            if usage_msg:
+                print(usage_msg, file=sys.stderr)
+            sys.exit(1)
+        func(args)
+        return
+
+    if len(args) < min_args:
+        print(f"Error: Missing arguments for '{command}'", file=sys.stderr)
+        if usage_msg:
+            print(usage_msg, file=sys.stderr)
+        sys.exit(1)
+
+    if len(args) > min_args:
+        print(f"Error: Too many arguments for '{command}'", file=sys.stderr)
+        if usage_msg:
+            print(usage_msg, file=sys.stderr)
+        sys.exit(1)
+
+    func(*args)
+
+
+if __name__ == "__main__":
+    main()

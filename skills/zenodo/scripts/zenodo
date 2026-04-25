@@ -1,0 +1,545 @@
+#!/usr/bin/env python3
+"""
+Zenodo CLI - Git-style command line interface for Zenodo API
+
+Usage:
+    zenodo <command> [options]
+
+Commands:
+    create          Create a new empty deposit
+    list            List all deposits
+    show <id>       Show deposit details
+    update <id>     Update deposit metadata
+    upload <id>     Upload file to deposit
+    delete <id>     Delete a deposit
+    publish <id>    Publish a deposit
+    search          Search public records
+    download <id>   Download files from a record
+
+Options:
+    --sandbox       Use Zenodo Sandbox environment
+    --help          Show this help message
+
+Environment:
+    ZENODO_ACCESS_TOKEN    Required for write operations. Your Zenodo API token
+"""
+
+import argparse
+import json
+import os
+import ssl
+import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+
+class Spinner:
+    """Simple CLI spinner for long-running operations."""
+
+    def __init__(self, message: str = ""):
+        self.message = message
+        self.running = False
+        self.thread: Optional[threading.Thread] = None
+        self.chars = "\\|/-"
+        self.idx = 0
+
+    def _spin(self):
+        while self.running:
+            char = self.chars[self.idx % len(self.chars)]
+            sys.stdout.write(f"\r{self.message} {char}")
+            sys.stdout.flush()
+            self.idx += 1
+            time.sleep(0.1)
+        sys.stdout.write(f"\r{' ' * (len(self.message) + 2)}\r")
+        sys.stdout.flush()
+
+    def start(self):
+        self.running = True
+        self.thread = threading.Thread(target=self._spin)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.thread:
+            self.thread.join()
+
+
+def get_base_url(sandbox=False):
+    """Get the appropriate base URL for Zenodo API."""
+    if sandbox:
+        return "https://sandbox.zenodo.org/api"
+    return "https://zenodo.org/api"
+
+
+def get_ssl_context(verify=True):
+    """Get SSL context, optionally disabling verification."""
+    if verify:
+        return ssl.create_default_context()
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def make_request(
+    url: str,
+    method: str = "GET",
+    headers: Optional[Dict[str, str]] = None,
+    data: Optional[bytes] = None,
+    verify: bool = True,
+    timeout: int = 30,
+    spinner: bool = True,
+) -> Dict[str, Any]:
+    """Make HTTP request and return JSON response."""
+    req_headers = headers or {}
+    req = urllib.request.Request(url, method=method, headers=req_headers, data=data)
+
+    ctx = get_ssl_context(verify)
+
+    s = Spinner("requesting") if spinner and sys.stdout.isatty() else None
+    if s:
+        s.start()
+
+    try:
+        with urllib.request.urlopen(req, context=ctx, timeout=timeout) as response:
+            if s:
+                s.stop()
+            if response.status in (204,):
+                return {}
+            return json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        if s:
+            s.stop()
+        handle_request_error(e)
+
+
+def handle_request_error(e):
+    """Handle request errors in git-style."""
+    if isinstance(e, urllib.error.HTTPError):
+        print(f"error: HTTP {e.code}", file=sys.stderr)
+        try:
+            error_body = e.read().decode("utf-8")
+            error_data = json.loads(error_body)
+            if "message" in error_data:
+                print(f"error: {error_data['message']}", file=sys.stderr)
+        except Exception:
+            pass
+    elif isinstance(e, urllib.error.URLError):
+        print(f"error: {e.reason}", file=sys.stderr)
+    elif isinstance(e, json.JSONDecodeError):
+        print("error: invalid JSON response", file=sys.stderr)
+    elif isinstance(e, TimeoutError):
+        print("error: connection timed out", file=sys.stderr)
+    else:
+        print(f"error: {e}", file=sys.stderr)
+    sys.exit(1)
+
+
+def download_file(
+    url: str,
+    output_path: Path,
+    verify: bool = True,
+    timeout: int = 60,
+) -> bool:
+    """Download file from URL to output path."""
+    ctx = get_ssl_context(verify)
+    spinner = Spinner("downloading") if sys.stdout.isatty() else None
+
+    try:
+        req = urllib.request.Request(url)
+        if spinner:
+            spinner.start()
+        with urllib.request.urlopen(req, context=ctx, timeout=timeout) as response:
+            with open(output_path, "wb") as f:
+                while True:
+                    chunk = response.read(8192)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+        if spinner:
+            spinner.stop()
+        return True
+    except Exception as e:
+        if spinner:
+            spinner.stop()
+        if isinstance(e, urllib.error.HTTPError):
+            print(f"  HTTP Error {e.code}", file=sys.stderr)
+        elif isinstance(e, urllib.error.URLError):
+            print(f"  Connection Error: {e.reason}", file=sys.stderr)
+        elif isinstance(e, TimeoutError):
+            print("  Timeout", file=sys.stderr)
+        else:
+            raise
+        return False
+
+
+def append_query(url: str, params: Dict[str, Any]) -> str:
+    """Append URL-encoded query parameters, omitting empty values."""
+    clean_params = {
+        key: value
+        for key, value in params.items()
+        if value is not None and value != ""
+    }
+    if not clean_params:
+        return url
+    return f"{url}?{urllib.parse.urlencode(clean_params)}"
+
+
+def safe_output_path(output_dir: Path, filename: str) -> Path:
+    """Keep record file downloads inside the requested output directory."""
+    safe_name = Path(filename).name
+    if not safe_name or safe_name in {".", ".."}:
+        print(f"error: unsafe filename from record: {filename}", file=sys.stderr)
+        sys.exit(1)
+    return output_dir / safe_name
+
+
+def get_auth_headers():
+    """Get request headers with authentication."""
+    token = os.environ.get("ZENODO_ACCESS_TOKEN")
+    if not token:
+        print("error: ZENODO_ACCESS_TOKEN not set", file=sys.stderr)
+        sys.exit(1)
+    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+
+def cmd_create(args):
+    """Create a new empty deposit."""
+    url = f"{get_base_url(args.sandbox)}/deposit/depositions"
+    headers = get_auth_headers()
+
+    data = {"metadata": {}}
+
+    if args.title:
+        data["metadata"]["title"] = args.title
+    if args.description:
+        data["metadata"]["description"] = args.description
+    if args.creators:
+        data["metadata"]["creators"] = [
+            {"name": name.strip()} for name in args.creators.split(",")
+        ]
+    if args.keywords:
+        data["metadata"]["keywords"] = [
+            kw.strip() for kw in args.keywords.split(",")
+        ]
+
+    verify_ssl = not args.no_verify
+    result = make_request(url, method="POST", headers=headers, data=json.dumps(data).encode(), verify=verify_ssl)
+    print(f"Created deposit: {result['id']}")
+    print(f"URL: {result['links']['html']}")
+    return result
+
+
+def cmd_list(args):
+    """List all deposits."""
+    url = f"{get_base_url(args.sandbox)}/deposit/depositions"
+    headers = get_auth_headers()
+
+    url = append_query(url, {"size": args.size, "page": args.page})
+
+    verify_ssl = not args.no_verify
+    result = make_request(url, headers=headers, verify=verify_ssl)
+
+    if not result:
+        print("No deposits found")
+        return result
+
+    print(f"{'ID':<10} {'Status':<12} {'Title'}")
+    print("-" * 80)
+    for deposit in result:
+        title = deposit.get("title", "Untitled")[:50]
+        status = deposit.get("state", "unknown")
+        print(f"{deposit['id']:<10} {status:<12} {title}")
+
+    return result
+
+
+def cmd_show(args):
+    """Show deposit details."""
+    url = f"{get_base_url(args.sandbox)}/deposit/depositions/{args.id}"
+    headers = get_auth_headers()
+    verify_ssl = not args.no_verify
+
+    result = make_request(url, headers=headers, verify=verify_ssl)
+    print(json.dumps(result, indent=2))
+    return result
+
+
+def cmd_update(args):
+    """Update deposit metadata."""
+    url = f"{get_base_url(args.sandbox)}/deposit/depositions/{args.id}"
+    headers = get_auth_headers()
+    verify_ssl = not args.no_verify
+
+    current = make_request(url, headers=headers, verify=verify_ssl)
+    data = {"metadata": current.get("metadata", {})}
+
+    if args.title:
+        data["metadata"]["title"] = args.title
+    if args.description:
+        data["metadata"]["description"] = args.description
+    if args.creators:
+        data["metadata"]["creators"] = [
+            {"name": name.strip()} for name in args.creators.split(",")
+        ]
+    if args.keywords:
+        data["metadata"]["keywords"] = [
+            kw.strip() for kw in args.keywords.split(",")
+        ]
+
+    result = make_request(url, method="PUT", headers=headers, data=json.dumps(data).encode(), verify=verify_ssl)
+    print(f"Updated deposit: {result['id']}")
+    return result
+
+
+def cmd_upload(args):
+    """Upload file to deposit."""
+    url = f"{get_base_url(args.sandbox)}/deposit/depositions/{args.id}/files"
+
+    file_path = Path(args.file)
+    if not file_path.exists():
+        print(f"error: file not found: {args.file}", file=sys.stderr)
+        sys.exit(1)
+
+    # Build multipart form data manually
+    boundary = "----FormBoundary7MA4YWxkTrZu0gW"
+    token = os.environ.get("ZENODO_ACCESS_TOKEN")
+    if not token:
+        print("error: ZENODO_ACCESS_TOKEN not set", file=sys.stderr)
+        sys.exit(1)
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": f"multipart/form-data; boundary={boundary}",
+    }
+
+    with open(file_path, "rb") as f:
+        file_content = f.read()
+
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{file_path.name}"\r\n'
+        f"Content-Type: application/octet-stream\r\n\r\n".encode()
+        + file_content
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+
+    verify_ssl = not args.no_verify
+    result = make_request(url, method="POST", headers=headers, data=body, verify=verify_ssl)
+    print(f"Uploaded: {result['filename']}")
+    return result
+
+
+def cmd_delete(args):
+    """Delete a deposit."""
+    url = f"{get_base_url(args.sandbox)}/deposit/depositions/{args.id}"
+    headers = get_auth_headers()
+    verify_ssl = not args.no_verify
+
+    result = make_request(url, method="DELETE", headers=headers, verify=verify_ssl)
+    print(f"Deleted deposit: {args.id}")
+
+
+def cmd_publish(args):
+    """Publish a deposit."""
+    url = f"{get_base_url(args.sandbox)}/deposit/depositions/{args.id}/actions/publish"
+    headers = get_auth_headers()
+    verify_ssl = not args.no_verify
+
+    result = make_request(url, method="POST", headers=headers, verify=verify_ssl)
+    print(f"Published deposit: {result['id']}")
+    print(f"DOI: {result.get('doi', 'N/A')}")
+    print(f"URL: {result['links']['html']}")
+    return result
+
+
+def cmd_search(args):
+    """Search public records."""
+    url = f"{get_base_url(args.sandbox)}/records"
+    headers = {"Accept": "application/json"}
+
+    url = append_query(
+        url,
+        {
+            "q": args.query,
+            "size": args.size,
+            "page": args.page,
+            "type": args.type,
+            "sort": args.sort,
+        },
+    )
+
+    verify_ssl = not args.no_verify
+    result = make_request(url, headers=headers, verify=verify_ssl, spinner=False)
+
+    hits = result.get("hits", {}).get("hits", [])
+    total = result.get("hits", {}).get("total", 0)
+
+    print(f"Found {total} results")
+    print()
+
+    for hit in hits:
+        metadata = hit.get("metadata", {})
+        print(f"ID: {hit['id']}")
+        print(f"Title: {metadata.get('title', 'N/A')}")
+        print(f"DOI: {hit.get('doi', 'N/A')}")
+        print(f"Type: {metadata.get('resource_type', {}).get('title', 'N/A')}")
+        print(f"Date: {metadata.get('publication_date', 'N/A')}")
+
+        creators = metadata.get("creators", [])
+        if creators:
+            creator_names = [c.get("name", "Unknown") for c in creators[:3]]
+            if len(creators) > 3:
+                creator_names.append("et al.")
+            print(f"Creators: {', '.join(creator_names)}")
+
+        files = hit.get("files", [])
+        if files:
+            total_size = sum(f.get("size", 0) for f in files)
+            print(f"Files: {len(files)} files ({total_size / (1024*1024):.2f} MB)")
+
+        print(f"URL: {hit.get('links', {}).get('self_html', 'N/A')}")
+        print("-" * 80)
+
+    return result
+
+
+def cmd_download(args):
+    """Download files from a public record."""
+    url = f"{get_base_url(args.sandbox)}/records/{args.id}"
+    headers = {"Accept": "application/json"}
+
+    verify_ssl = not args.no_verify
+    result = make_request(url, headers=headers, verify=verify_ssl, spinner=False)
+
+    metadata = result.get("metadata", {})
+    files = result.get("files", [])
+
+    if not files:
+        print(f"error: no files available for record {args.id}", file=sys.stderr)
+        sys.exit(1)
+
+    output_dir = Path(args.output) if args.output else Path(f"zenodo_{args.id}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    downloaded = []
+    failed = []
+    for file_info in files:
+        filename = file_info["key"]
+        file_url = file_info["links"]["self"]
+        file_size = file_info.get("size", 0)
+
+        output_path = safe_output_path(output_dir, filename)
+
+        if output_path.exists() and not args.force:
+            print(f"Skipping {filename}")
+            continue
+
+        if download_file(file_url, output_path, verify=verify_ssl):
+            downloaded.append(filename)
+        else:
+            failed.append(filename)
+            print(f"error: failed to download '{filename}'", file=sys.stderr)
+
+    if downloaded:
+        print(f"Downloaded {len(downloaded)} file(s) to {output_dir}")
+    if failed:
+        sys.exit(1)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Zenodo CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    parser.add_argument(
+        "--sandbox", action="store_true", help="Use Zenodo Sandbox environment"
+    )
+    parser.add_argument(
+        "--no-verify", action="store_true", help="Disable SSL certificate verification"
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # create
+    create_parser = subparsers.add_parser("create", help="Create a new deposit")
+    create_parser.add_argument("--title", help="Deposit title")
+    create_parser.add_argument("--description", help="Deposit description")
+    create_parser.add_argument("--creators", help="Comma-separated creator names")
+    create_parser.add_argument("--keywords", help="Comma-separated keywords")
+
+    # list
+    list_parser = subparsers.add_parser("list", help="List deposits")
+    list_parser.add_argument("--size", type=int, help="Number of results per page")
+    list_parser.add_argument("--page", type=int, help="Page number")
+
+    # show
+    show_parser = subparsers.add_parser("show", help="Show deposit details")
+    show_parser.add_argument("id", type=int, help="Deposit ID")
+
+    # update
+    update_parser = subparsers.add_parser("update", help="Update deposit metadata")
+    update_parser.add_argument("id", type=int, help="Deposit ID")
+    update_parser.add_argument("--title", help="New title")
+    update_parser.add_argument("--description", help="New description")
+    update_parser.add_argument("--creators", help="Comma-separated creator names")
+    update_parser.add_argument("--keywords", help="Comma-separated keywords")
+
+    # upload
+    upload_parser = subparsers.add_parser("upload", help="Upload file to deposit")
+    upload_parser.add_argument("id", type=int, help="Deposit ID")
+    upload_parser.add_argument("file", help="File path to upload")
+
+    # delete
+    delete_parser = subparsers.add_parser("delete", help="Delete a deposit")
+    delete_parser.add_argument("id", type=int, help="Deposit ID")
+
+    # publish
+    publish_parser = subparsers.add_parser("publish", help="Publish a deposit")
+    publish_parser.add_argument("id", type=int, help="Deposit ID")
+
+    # search
+    search_parser = subparsers.add_parser("search", help="Search public records")
+    search_parser.add_argument("query", nargs="?", help="Search query")
+    search_parser.add_argument("--type", help="Filter by resource type")
+    search_parser.add_argument("--size", type=int, default=10, help="Number of results")
+    search_parser.add_argument("--page", type=int, help="Page number")
+    search_parser.add_argument("--sort", choices=["bestmatch", "newest", "oldest"], default="bestmatch")
+
+    # download
+    download_parser = subparsers.add_parser("download", help="Download files from a record")
+    download_parser.add_argument("id", type=int, help="Record ID")
+    download_parser.add_argument("--output", "-o", help="Output directory")
+    download_parser.add_argument("--force", "-f", action="store_true", help="Overwrite existing")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    commands = {
+        "create": cmd_create,
+        "list": cmd_list,
+        "show": cmd_show,
+        "update": cmd_update,
+        "upload": cmd_upload,
+        "delete": cmd_delete,
+        "publish": cmd_publish,
+        "search": cmd_search,
+        "download": cmd_download,
+    }
+
+    commands[args.command](args)
+
+
+if __name__ == "__main__":
+    main()
