@@ -1,7 +1,7 @@
 # bio-skills
 
-Agent Skills for BioContainers discovery and Zenodo research repository
-publishing workflows.
+Agent Skills for bioinformatics reproduction, BioContainers discovery, and
+Zenodo research repository publishing workflows.
 
 This repository stores skills under `skills/`. Each skill follows the
 [Agent Skills specification](https://agentskills.io/specification) and can be
@@ -11,6 +11,7 @@ used by skills-compatible agents.
 
 | Skill | Description |
 |-------|-------------|
+| [`bio-reproducer`](skills/bio-reproducer) | Reproduce bioinformatics papers through a logged multi-phase workflow covering planning, bootstrap, provisioning, data acquisition, execution, and validation. |
 | [`biocontainers`](skills/biocontainers) | Search BioContainers, inspect tools, list versions, and resolve full quay.io image tags through the GA4GH TRS API. |
 | [`zenodo`](skills/zenodo) | Search or download Zenodo records and manage authenticated Zenodo deposits through the API. |
 
@@ -34,6 +35,7 @@ For other platforms, see the
 Install one skill:
 
 ```sh
+skit install --global vlln/bio-skills/skills/bio-reproducer
 skit install --global vlln/bio-skills/skills/biocontainers
 skit install --global vlln/bio-skills/skills/zenodo
 ```
@@ -46,8 +48,8 @@ skit install --global vlln/bio-skills --all
 
 ### Manual
 
-Copy `skills/biocontainers` or `skills/zenodo` into your agent's skills
-directory, then restart the agent if required.
+Copy `skills/bio-reproducer`, `skills/biocontainers`, or `skills/zenodo` into
+your agent's skills directory, then restart the agent if required.
 
 Common locations:
 
@@ -58,7 +60,9 @@ Common locations:
 ## Requirements
 
 - Python 3 for the bundled helper scripts.
-- Network access to BioContainers or Zenodo APIs.
+- Network access to BioContainers, Zenodo, SRA/ENA/GEO, or CrossRef APIs,
+  depending on the skill and task.
+- Nextflow plus a container runtime for full `bio-reproducer` pipeline runs.
 - `ZENODO_ACCESS_TOKEN` for Zenodo write operations.
 
 ## License
