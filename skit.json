@@ -1,6 +1,22 @@
 {
   "schema": "skit.manifest/v1",
   "skills": {
+    "biocontainers": {
+      "name": "biocontainers",
+      "description": "Search BioContainers, inspect bioinformatics container metadata, list available versions, and resolve full quay.io image tags through the GA4GH TRS API.",
+      "source": {
+        "type": "github",
+        "locator": "vlln/bio-skills",
+        "url": "https://github.com/vlln/bio-skills.git",
+        "ref": "main",
+        "subpath": "skills/biocontainers",
+        "skill": "biocontainers"
+      },
+      "path": "skills/biocontainers",
+      "agents": [
+        "universal"
+      ]
+    },
     "paperutils": {
       "name": "paperutils",
       "description": "Run paperutils CLI commands (get, find, explain) to fetch paper dossiers, search for papers, or explain dataset accessions for biomedical and CS papers. Use when the user asks about papers, DOIs, PMIDs, arXiv IDs, datasets, or accessions — anything that requires querying Crossref, Europe PMC, PubMed, arXiv, bioRxiv, ENA, or NCBI.",
