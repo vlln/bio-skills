@@ -9,6 +9,7 @@ metadata:
       bins:
         - bash
         - python3
+        - paperutils
     keywords:
       - bioinformatics
       - reproducibility
@@ -116,7 +117,8 @@ async_submit.sh p4_data_fetch_batch1 "nextflow run data.nf -resume" . -l p4_data
 check_status.sh p4_data_fetch_batch1 . status
 check_status.sh ignored . list
 check_status.sh p4_data_fetch_batch1 . log
-fetch_metadata.py ena PRJEB12345 -f markdown
+paperutils get 10.1234/example --json
+paperutils explain PRJEB12345 --json
 ```
 
 Async task names should use `{phase}_{action}_{instance}`, for example

@@ -191,7 +191,7 @@ DOI: [doi or URL]
 ## Rules
 1. **唯一计划文件** - 所有 P1 发现都回填 `01_plan/plan.md`, 不创建并行 metadata/accession 计划文件
 2. **论文声明优先** - `Paper Claims` 只写论文、补充材料、数据可用性页面和已获取 cited resources 的明确陈述
-3. **标识符可解析** - DOI/SRA/ENA/GEO 等论文明确给出的标识符可用 `fetch_metadata.py` 查询并记录
+3. **标识符可解析** - DOI/SRA/ENA/GEO 等论文明确给出的标识符可用 `paperutils get` 和 `paperutils explain` 查询并记录
 4. **获取轻量资源** - 对论文明确链接的代码、补充材料、协议和小型表格, 应获取到 `01_plan/resources/` 或记录本地已有路径
 5. **记录获取状态** - 每个资源必须记录 URL/identifier、本地路径、状态和访问备注; 不只列出“可获得”
 6. **写清论文解读** - `Paper Understanding` 用 prose 写出论文内容, 但不得加入论文外判断或复现可行性评估
@@ -231,13 +231,13 @@ rg -n "Supplementary|supplement|Data availability|Code availability|Zenodo|Figsh
 
 ## Helper
 
-Use `scripts/fetch_metadata.py` only for identifiers already present in the
-paper or supplement:
+Use `paperutils get` and `paperutils explain` only for identifiers already
+present in the paper or supplement:
 
 ```bash
-fetch_metadata.py doi 10.1234/example -f markdown
-fetch_metadata.py ena PRJEB12345 -f markdown
-fetch_metadata.py geo GSE12345 -f markdown
+paperutils get 10.1234/example --json
+paperutils explain PRJEB12345 --json
+paperutils explain GSE12345 --db geo --json
 ```
 
 Copy relevant facts into `External Identifier Records`; do not create a
