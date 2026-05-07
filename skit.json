@@ -1,0 +1,69 @@
+{
+  "schema": "skit.manifest/v1",
+  "skills": {
+    "paperutils": {
+      "name": "paperutils",
+      "description": "Run paperutils CLI commands (get, find, explain) to fetch paper dossiers, search for papers, or explain dataset accessions for biomedical and CS papers. Use when the user asks about papers, DOIs, PMIDs, arXiv IDs, datasets, or accessions — anything that requires querying Crossref, Europe PMC, PubMed, arXiv, bioRxiv, ENA, or NCBI.",
+      "source": {
+        "type": "github",
+        "locator": "vlln/paperutils",
+        "url": "https://github.com/vlln/paperutils.git",
+        "ref": "master",
+        "subpath": "skills/paperutils",
+        "skill": "paperutils"
+      },
+      "path": "skills/paperutils",
+      "agents": [
+        "universal"
+      ]
+    },
+    "quay": {
+      "name": "quay",
+      "description": "Search Quay.io repositories, list image tags, inspect tag metadata, and resolve pullable quay.io image references for public or token-visible containers.",
+      "source": {
+        "type": "github",
+        "locator": "vlln/quay-skill",
+        "url": "https://github.com/vlln/quay-skill.git",
+        "ref": "main",
+        "subpath": "skills/quay",
+        "skill": "quay"
+      },
+      "path": "skills/quay",
+      "agents": [
+        "universal"
+      ]
+    },
+    "image-mirror-skill": {
+      "name": "image-mirror-skill",
+      "description": "Use the mip CLI to accelerate and troubleshoot Docker/OCI image pulls with registry-aware mirror rewrite, probe, pull, and configuration workflows.",
+      "source": {
+        "type": "github",
+        "locator": "vlln/mip",
+        "url": "https://github.com/vlln/mip.git",
+        "ref": "main",
+        "subpath": "skills/image-mirror-skill",
+        "skill": "image-mirror-skill"
+      },
+      "path": "skills/image-mirror-skill",
+      "agents": [
+        "universal"
+      ]
+    },
+    "remote-exec": {
+      "name": "remote-exec",
+      "description": "Use this skill when the user needs to run repeated shell commands on a remote machine over SSH, including connection checks, stdin scripts, and optional tmux-backed persistent state. Do not use it for local-only commands or workflows that require storing passwords.",
+      "source": {
+        "type": "github",
+        "locator": "vlln/remote-exec-skill",
+        "url": "https://github.com/vlln/remote-exec-skill.git",
+        "ref": "main",
+        "subpath": "skills/remote-exec",
+        "skill": "remote-exec"
+      },
+      "path": "skills/remote-exec",
+      "agents": [
+        "universal"
+      ]
+    }
+  }
+}
