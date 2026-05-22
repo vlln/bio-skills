@@ -4,7 +4,7 @@ description: Guide agents through reproducible bioinformatics paper reproduction
 compatibility: Requires Bash and Python 3 for helper scripts; Nextflow, a container runtime, and network access are needed only for phases that use them.
 metadata:
   skit:
-    version: 0.1.0
+    version: 0.2.0
     requires:
       bins:
         - bash
@@ -52,6 +52,7 @@ explicitly user-approved data/scratch path.
 | 4 Data | `04_data/data_manifest.md` | `references/04_data.md` | Mixed; downloads/Nextflow operations async |
 | 5 Run | `05_run/run_results.md` | `references/05_run.md` | Mixed; Nextflow orchestration runs async |
 | 6 Validate | `06_validate/report.md` | `references/06_validate.md` | Manual comparison |
+| 7 Package | `README.md`, `run.sh` | `references/07_package.md` | Write README and entrypoint script |
 
 State rules:
 
@@ -59,7 +60,8 @@ State rules:
 - Last log is `Phase N - SUBMITTED: ...`: check `.task_status/` and task logs.
 - Last log is `Phase N - COMPLETED: ...` and output exists: start Phase N+1.
 - Last log is `Phase N - FAILED: ...`: diagnose, retry, or rollback.
-- `06_validate/report.md` exists: summarize the final result.
+- `06_validate/report.md` exists and verdict is REPRODUCED/PARTIAL: start Phase 7.
+- `README.md` and `run.sh` exist: reproduction complete.
 
 ## Phase Handoff
 
@@ -84,6 +86,8 @@ Key state files:
 - `04_data/data_manifest.md`
 - `05_run/run_results.md`
 - `06_validate/report.md`
+- `README.md`
+- `run.sh`
 
 ## Logging
 
@@ -160,6 +164,6 @@ Async task names should use `{phase}_{action}_{instance}`, for example
 When validation or execution shows an earlier phase is wrong:
 
 1. Identify the earliest faulty phase.
-2. Log `Phase 6 - ROLLBACK: returning to Phase M because...`.
+2. Log `Phase N - ROLLBACK: returning to Phase M because...`.
 3. Log `Phase M - START: retry after rollback`.
 4. Fix the phase output and rerun affected later phases.
