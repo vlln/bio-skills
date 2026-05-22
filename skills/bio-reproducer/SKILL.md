@@ -147,6 +147,11 @@ Async task names should use `{phase}_{action}_{instance}`, for example
   metadata APIs, but must record those results separately from paper claims in
   `01_plan/plan.md`; do not estimate, search broadly, or decide data strategy.
 - Use `nextflow ... -resume` for Phase 3-5 Nextflow orchestration runs.
+- Scripts and code must never use hardcoded or absolute paths/parameters.
+  All paths, thresholds, and configurable values must be derived from plan.md,
+  data manifests, environment variables, or relative paths within the workspace.
+  The goal is that another person can clone the repo and reproduce without
+  editing any script.
 - Before deciding a long task has failed or succeeded, check its task status,
   process state, and logs.
 
