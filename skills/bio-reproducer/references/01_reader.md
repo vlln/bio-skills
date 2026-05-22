@@ -18,8 +18,8 @@
 
 ## Mandatory Source Discovery
 
-P1 不能只读本地 PDF。即使用户只提供 `./paper/*.pdf`, 也必须把论文页面本身
-当作资源目录来检查，避免遗漏 PDF 文本中不显示的附件。
+P1 不能只读本地 PDF。即使用户只提供单论文, 也必须寻找论文页面相关
+其他资源检查，避免遗漏 PDF 文本中不显示的附件。
 
 对每篇论文必须检查并记录:
 
@@ -82,7 +82,7 @@ a v1 PDF but public pages show v2 or a version of record:
 
 ### Supplement Completeness Check
 
-Before marking P1 complete, perform a reverse check:
+Before this work complete, perform a reverse check:
 
 - Every `Supplementary Note/Table/Figure/Data` mention in the paper must have a
   row in `Supplementary Materials Inventory`.
@@ -102,7 +102,7 @@ enough to update `plan.md` before completion.
 - **可获取**: supplementary files (`pdf`, `docx`, `xlsx`, `csv`, `tsv`),
   source data tables, code repositories, README/docs, protocol pages, small
   config/example files, repository file manifests
-- **不获取**: raw sequencing files, full reference genomes, large archives, container images, package environments, model checkpoints, paid/controlled-access data
+- **不获取**: raw sequencing files, full reference genomes, container images, package environments, model checkpoints, paid/controlled-access data
 - **不做**: 搜索未在论文中出现的资料、安装环境、运行 pipeline、估算规模、假设版本、决定数据策略
 - 外部 API 结果只写入 `External Identifier Records`, 不得改写 `Paper Claims`
 - 获取新资源后必须继续阅读并回填 `plan.md`; P1 可以多轮迭代直到 cited lightweight resources 已登记和处理
@@ -138,7 +138,7 @@ DOI: [doi or URL]
 [说明样本/队列/实验设计/比较组/数据类型, 只写论文明确给出的内容。]
 
 ### Method Overview
-[用清晰 prose 解释主要分析流程和方法逻辑, 让后续 agent 理解每一步为什么存在。]
+[用清晰 prose 解释主要分析流程和方法逻辑, 让读者理解每一步为什么存在。]
 
 ### Key Findings
 [列出论文声称的主要发现、关键图表和关键数值。]
@@ -173,10 +173,10 @@ DOI: [doi or URL]
 | File/URL | Type | Local Path | Status | Notes |
 
 ## Supplementary Materials Inventory
-| Item | Type | URL/Path | Local Path | Mentioned In | Status | Notes |
+| Item | Type | URL/Path | Mentioned In | Status | Notes |
 
 ## Resource Locations
-| Resource | Type | URL/Identifier | Local Path | Purpose | Location in Paper | Access Notes |
+| Resource | Type | URL/Identifier | Purpose | Location in Paper | Access Notes |
 
 ## External Identifier Records
 | Identifier | Database | Resolved Type | Title/Description | Linked IDs | Source API | Retrieved At |
@@ -212,10 +212,6 @@ DOI: [doi or URL]
 
 P1 完成前必须在工作区或网页内容中完成一次资源完整性检查。可用 `rg`
 或等效方式检查本地文本、下载的补充材料文本提取结果和页面 HTML:
-
-```bash
-rg -n "Supplementary|supplement|Data availability|Code availability|Zenodo|Figshare|GitHub|version|latest|media-|MOESM|DC[0-9]|docx|xlsx|csv|tsv|zip|gz" 01_plan/resources
-```
 
 然后确认:
 
