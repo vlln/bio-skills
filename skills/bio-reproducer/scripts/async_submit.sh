@@ -3,11 +3,11 @@
 set -euo pipefail
 
 task="" cmd="" wdir=""
-logfile="" envfile=""
+logfile="" envfile="" execlog=""
 setsid_mode=true
 
 usage() { cat << EOF
-用法: $0 <task> <cmd> <dir> [-l log] [-e env] [-n]
+用法: $0 <task> <cmd> <dir> [-l log] [-e env] [-L exec_log] [-n]
 EOF
 exit 1; }
 
@@ -15,6 +15,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -l) logfile="$2"; shift 2 ;;
         -e) envfile="$2"; shift 2 ;;
+        -L) execlog="$2"; shift 2 ;;
         -n) setsid_mode=false; shift ;;
         -h) usage ;;
         *)
@@ -81,5 +82,13 @@ fi
 echo "$pid" > "$pf"
 pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ') || true
 [[ -n "$pgid" && "$pgid" != "$pid" ]] && echo "$pgid" > "${sd}/${task}.pgid"
+
+# Auto-append to execution log if -L provided
+if [[ -n "$execlog" ]]; then
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    "$script_dir/append_log.sh" \
+        "Phase ${task:1:1} - SUBMITTED: $task" "$wdir" \
+        -s SUBMITTED -o "$logfile" -f "$execlog"
+fi
 
 echo "✅ ${task} | PID:$pid | ${logfile}"

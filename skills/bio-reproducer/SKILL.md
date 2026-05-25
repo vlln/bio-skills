@@ -4,7 +4,7 @@ description: Guide agents through reproducible bioinformatics paper reproduction
 compatibility: Requires Bash and Python 3 for helper scripts; Nextflow, a container runtime, and network access are needed only for phases that use them.
 metadata:
   skit:
-    version: 0.2.0
+    version: 0.3.0
     requires:
       bins:
         - bash
@@ -52,7 +52,7 @@ explicitly user-approved data/scratch path.
 | 4 Data | `04_data/data_manifest.md` | `references/04_data.md` | Mixed; downloads/Nextflow operations async |
 | 5 Run | `05_run/run_results.md` | `references/05_run.md` | Mixed; Nextflow orchestration runs async |
 | 6 Validate | `06_validate/report.md` | `references/06_validate.md` | Manual comparison |
-| 7 Package | `README.md`, `run.sh` | `references/07_package.md` | Write README and entrypoint script |
+| 7 Package | `README.md`, `run.sh`, `.gitignore` | `references/07_package.md` | Write README, entrypoint script, and gitignore |
 
 State rules:
 
@@ -61,7 +61,7 @@ State rules:
 - Last log is `Phase N - COMPLETED: ...` and output exists: start Phase N+1.
 - Last log is `Phase N - FAILED: ...`: diagnose, retry, or rollback.
 - `06_validate/report.md` exists and verdict is REPRODUCED/PARTIAL: start Phase 7.
-- `README.md` and `run.sh` exist: reproduction complete.
+- `README.md`, `run.sh`, and `.gitignore` exist: reproduction complete.
 
 ## Phase Handoff
 
@@ -88,6 +88,7 @@ Key state files:
 - `06_validate/report.md`
 - `README.md`
 - `run.sh`
+- `.gitignore`
 
 ## Logging
 
@@ -110,14 +111,18 @@ Use these status values:
 Log phase starts/completions, async submissions, task status changes, failures,
 and rollbacks. Do not log pure reads, directory creation, or simple environment
 queries unless the result affects future work.
+SUBMITTED entries must record the task log file path so future agents can
+inspect it (use `async_submit.sh -L` or `append_log.sh -o`).
 
 ## Helper Scripts
 
 Resolve scripts from this skill's `scripts/` directory.
 
 ```bash
-append_log.sh "Phase 4 - SUBMITTED: p4_data_fetch_batch1" . -p 4 -s SUBMITTED
-async_submit.sh p4_data_fetch_batch1 "nextflow run data.nf -resume" . -l p4_data_fetch_batch1.log
+async_submit.sh p4_data_fetch_batch1 "nextflow run data.nf -resume" . -l p4_data_fetch_batch1.log -L execution_log.md
+# The -L flag auto-appends a SUBMITTED entry with the log file path.
+# Use plain append_log.sh for entries not tied to async tasks:
+append_log.sh "Phase 3 - COMPLETED: provision ready" . -p 3 -s COMPLETED
 check_status.sh p4_data_fetch_batch1 . status
 check_status.sh ignored . list
 check_status.sh p4_data_fetch_batch1 . log
@@ -132,6 +137,11 @@ Async task names should use `{phase}_{action}_{instance}`, for example
 
 - Write reproduction state only inside `repro-data/`, except for user-approved
   external data/scratch paths.
+- All phase artifacts, intermediate files, and logs must be stored inside that
+  phase's own output directory (e.g., logs for Phase 3 go under
+  `03_provision/`, never at the workspace root). Only `execution_log.md`,
+  `.task_status/`, and the final `README.md`/`run.sh`/`.gitignore` live at the
+  `repro-data/` root.
 - Commit meaningful state changes inside `repro-data/`; never commit files
   outside that Git repository.
 - Check whether phase outputs already exist before writing them.

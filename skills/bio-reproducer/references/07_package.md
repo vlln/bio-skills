@@ -19,6 +19,7 @@
 |------|---------|
 | `README.md` | 项目总览、快速开始、目录结构 |
 | `run.sh` | 顶层入口脚本，检查环境并引导执行 |
+| `.gitignore` | 忽略日志、Nextflow work 目录等临时文件 |
 
 ### README.md 必须包含
 
@@ -70,6 +71,7 @@ bash run.sh validate    # Phase 6: validate results
 repro-data/
 ├── README.md
 ├── run.sh
+├── .gitignore
 ├── 01_plan/plan.md
 ├── 02_bootstrap/bootstrap.md
 ├── 03_provision/provision.md
@@ -139,13 +141,38 @@ bootstrap() {
 "${@:-check}"
 ```
 
+### .gitignore 必须包含
+
+至少忽略以下临时文件和目录：
+
+```gitignore
+# Task execution logs
+*.log
+.task_status/
+
+# Nextflow work directories (large intermediate files)
+work/
+.nextflow/
+.nextflow.log*
+
+# Container / Singularity images
+*.sif
+*.img
+
+# Editor / OS artifacts
+*~
+.DS_Store
+```
+
+如有 phase 特定的临时产出也应一并忽略。
+
 ## Workflow
 
 1. 读取 `01_plan/plan.md` 的标题、DOI、Paper Understanding
 2. 读取 `06_validate/report.md` 的 Verdict、Score、Deviations
 3. 读取 `02_bootstrap/bootstrap.md` 提取系统要求
 4. 从各 phase 产出推断目录结构
-5. 编写 `README.md` 和 `run.sh`
+5. 编写 `README.md`、`run.sh` 和 `.gitignore`
 6. Git commit
 
 ## Rules
@@ -157,6 +184,6 @@ bootstrap() {
 - Phase 7 不重跑任何分析，只做打包和文档
 
 ## Completion
-- 输出 `README.md` 和 `run.sh` 在 `repro-data/` 根目录
+- 输出 `README.md`、`run.sh` 和 `.gitignore` 在 `repro-data/` 根目录
 - 记录 `Phase 7 - COMPLETED: reproduction packaged`
 - Git commit
