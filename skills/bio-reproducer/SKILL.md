@@ -4,7 +4,7 @@ description: Guide agents through reproducible bioinformatics paper reproduction
 compatibility: Requires Bash and Python 3 for helper scripts; Nextflow, a container runtime, and network access are needed only for phases that use them.
 metadata:
   skit:
-    version: 0.3.0
+    version: 0.4.0
     requires:
       bins:
         - bash
