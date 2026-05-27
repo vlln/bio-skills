@@ -16,9 +16,11 @@
 2. 从 `provision.md` 选择已验证的工具/容器; 不猜测未部署环境。
 3. 从 `data_manifest.md` 读取实际数据路径; 不使用未记录数据。
 4. 编写 `main.nf` 和必要的阶段配置, 将论文指定的实际执行单元封装为 process。
-5. 通过 `async_submit.sh` 运行 `nextflow run main.nf -resume`。
-6. 监控 `.task_status/`, Nextflow run ID, workdir 和日志; 不凭耗时长短猜测状态。
-7. 写入 `run_results.md`。
+5. 容器网络检查 — 启动测试容器验证 DNS 和外网连通性，对比 Phase 2 记录的
+   宿主机网络检测子网冲突；若不通或冲突则在 `run_results.md` 记录并警告用户。
+6. 通过 `async_submit.sh` 运行 `nextflow run main.nf -resume`。
+7. 监控 `.task_status/`, Nextflow run ID, workdir 和日志; 不凭耗时长短猜测状态。
+8. 写入 `run_results.md`。
 
 ## Output Files
 
