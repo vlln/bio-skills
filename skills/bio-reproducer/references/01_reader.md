@@ -5,6 +5,20 @@
 `01_plan/plan.md`。P1 可以获取轻量研究资源并反复回填发现的信息，
 但不估算、不部署、不下载分析规模数据。
 
+P1 must first read or create `reproduction_options.md`. The global figure
+reproduction mode is locked there before any figure interpretation. Record the
+startup user decision, or the conservative agent default when no user decision
+was requested, in the file's Decision Record. If the mode is `visual-validate`
+but the current agent/model lacks visual multimodal capability, stop P1 and
+report the capability block instead of reading figures from images.
+
+If a paper PDF is available, convert it to Markdown before extracting claims.
+Use a PDF-to-Markdown parser that extracts figures/images into files when
+available, and store the result under `01_plan/paper_markdown/`. Read the
+Markdown, extracted image inventory, captions, tables, and links as the primary
+paper representation; fall back to raw PDF text only when conversion fails and
+record the failure.
+
 论文声明、已获取资源和外部标识符记录必须分区记录，不能混为同一来源。
 `plan.md` 还必须包含一段足够详细的论文解读，使未读原文的后续 agent
 或人类能够清楚理解论文研究了什么、用了什么数据和方法、声称得到什么结果。
@@ -23,7 +37,8 @@ P1 不能只读本地 PDF。即使用户只提供单论文, 也必须寻找论�
 
 对每篇论文必须检查并记录:
 
-1. **本地 PDF / HTML 正文**: 标题、DOI、版本、Data availability、
+1. **本地 PDF / HTML 正文**: PDF 必须先转换为 Markdown，并登记提取出的
+   图片/表格/链接清单；然后提取标题、DOI、版本、Data availability、
    Code availability、所有 Supplementary Note/Table/Figure/Data 引用。
 2. **预印本或 DOI landing page**: 例如 medRxiv/bioRxiv 的 article page。
 3. **Supplementary material 页面或标签页**: 对 medRxiv/bioRxiv 必查
@@ -120,6 +135,7 @@ enough to update `plan.md` before completion.
 | Parameters | 工具参数, 阈值, cutoff |
 | Steps | 流程顺序, 输入/输出 |
 | Expected Results | 图表, 关键数字 |
+| Figure Reproduction | 关键 figure/panel、source data、绘图代码、可复现模式 |
 | Paper Understanding | 研究问题, 背景, 数据设计, 方法逻辑, 主要发现, 复现目标 |
 | Versioned Resources | preprint v1/v2、正式版、Zenodo/Figshare 版本和文件清单 |
 
@@ -169,6 +185,17 @@ DOI: [doi or URL]
 ### Expected Results
 | Output | Figure/Table | Expected Value |
 
+### Figure Reproduction Inventory
+| Figure/Panel | Scientific Claim | Plot Type | Required Data | Plotting Code/Notebook | Expected Pattern | Source |
+
+For each key figure or panel that is central to the reproduction target,
+record whether source data and plotting code are available. If no plotting
+code is provided, record the data columns or result files that would be needed
+to generate a data-backed replacement plot. `Expected Pattern` must come from
+captions, text, source data, or visual inspection by a multimodal model. Agents
+without visual multimodal capability must not infer patterns from images.
+Do not infer visual similarity in Phase 1.
+
 ## Source Files Reviewed
 | File/URL | Type | Local Path | Status | Notes |
 
@@ -202,10 +229,25 @@ DOI: [doi or URL]
 11. **引用位置** - 注明章节/图表/URL/文件路径
 12. **不估算** - 不估算下载规模、资源需求、复现可行性或替代策略
 13. **大资源暂停** - 遇到大文件、原始数据、容器、环境或受限资源, 只登记位置和访问要求, 留给后续 phase
-12. **页面附件必查** - 对预印本/出版商页面的 supplementary tab、`media-*`,
+14. **PDF 先转 Markdown** - 本地 PDF 必须先解析为 Markdown 和提取图片，
+    结果放入 `01_plan/paper_markdown/`；`Source Files Reviewed` 必须记录
+    PDF、Markdown、图片目录和转换状态。
+15. **遵守全局图复现模式** - `reproduction_options.md` 是唯一来源；P1 不得
+    自行开启、关闭或升级图复现模式。
+16. **记录启动决策** - 若启动前询问用户图复现模式，必须把用户问题、选择、
+    时间和能力假设写入 `Decision Record`；若未询问用户，必须记录 agent
+    default 和保守原因。
+17. **Figure inventory 必填条件** - 当全局模式为 `visual-validate` 或
+    `generate-only` 时，对复现目标中的关键 figure/panel 必须记录
+    source data、绘图代码、notebook、图类型和期望科学模式；缺失则写
+    "Not specified" 或 "Not found after checking [specific pages]"。
+18. **不做视觉判断** - P1 只登记图表信息和可用资源，不判断原图与潜在复现图是否相似。
+    若全局模式为 `off`，不得从提取图片中推断未在文字、caption 或 source data
+    中出现的模式。
+19. **页面附件必查** - 对预印本/出版商页面的 supplementary tab、`media-*`,
     `MOESM*`, `DC*`, `supplements/*` 附件必须检查；PDF 文本缺少直链不等于
     附件不存在
-13. **版本不混写** - v1/v2/正式版资源必须分别登记；除非用户明确要求切换
+20. **版本不混写** - v1/v2/正式版资源必须分别登记；除非用户明确要求切换
     目标版本, 不要用新版资源覆盖旧版论文声明
 
 ## Completion Sanity Check
@@ -217,9 +259,14 @@ P1 完成前必须在工作区或网页内容中完成一次资源完整性检�
 
 - `Supplementary Materials Inventory` 已覆盖所有 Supplementary Notes/Tables/
   Figures/Data 资源。
+- PDF 已转换为 `01_plan/paper_markdown/` 下的 Markdown 和图片清单，或记录了
+  转换失败原因和 fallback。
 - `Source Files Reviewed` 包含 article landing page 和 supplementary material
   page, 或解释为什么无法访问。
 - `Resource Locations` 包含所有论文声明的数据、代码、协议、仓库和小型表格。
+- 当全局图复现模式不是 `off` 时，`Figure Reproduction Inventory` 覆盖所有
+  复现目标中的关键 figure/panel，并记录 source data、plotting
+  code/notebook 和缺失项。
 - `External Identifier Records` 区分论文 DOI、代码/数据 DOI、版本 DOI 和
   version-of-record DOI。
 - `Source Conflicts And Gaps` 记录 v1/v2/正式版差异、缺失补充材料、访问限制

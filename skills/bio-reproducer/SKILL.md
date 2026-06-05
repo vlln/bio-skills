@@ -4,7 +4,7 @@ description: Guide agents through reproducible bioinformatics paper reproduction
 compatibility: Requires Bash and Python 3 for helper scripts; Nextflow, a container runtime, and network access are needed only for phases that use them.
 metadata:
   skit:
-    version: 0.4.1
+    version: 0.4.2
     requires:
       bins:
         - bash
@@ -33,10 +33,12 @@ state log. Recover by reading files, not by relying on chat memory.
 
 1. Ensure `repro-data/` exists and work inside it for all reproduction state.
 2. Initialize Git only inside `repro-data/` when `.git/` is absent.
-3. Read `execution_log.md`, then check `.task_status/` for submitted async
+3. Ensure `reproduction_options.md` exists before Phase 1. This file locks
+   global options that later agents must read and must not silently change.
+4. Read `execution_log.md`, then check `.task_status/` for submitted async
    tasks before starting new work.
-4. Load the reference file for the current phase.
-5. Read all completed prior phase outputs required by the current phase.
+5. Load the reference file for the current phase.
+6. Read all completed prior phase outputs required by the current phase.
 
 Small throwaway temp files may use `/tmp/`. Reproduction data, downloads,
 Nextflow work directories, and results must stay under `repro-data/` or an
@@ -50,12 +52,14 @@ explicitly user-approved data/scratch path.
 | 2 Bootstrap | `02_bootstrap/bootstrap.md` | `references/02_bootstrap.md` | Mixed; long-running setup async |
 | 3 Provision | `03_provision/provision.md` | `references/03_provision.md` | Mixed; container/Nextflow operations async |
 | 4 Data | `04_data/data_manifest.md` | `references/04_data.md` | Mixed; downloads/Nextflow operations async |
-| 5 Run | `05_run/run_results.md` | `references/05_run.md` | Mixed; Nextflow orchestration runs async |
-| 6 Validate | `06_validate/report.md` | `references/06_validate.md` | Manual comparison |
+| 5 Run | `05_run/run_results.md` | `references/05_run.md` | Mixed; Nextflow orchestration runs async; optional figure generation |
+| 6 Validate | `06_validate/report.md` | `references/06_validate.md` | Manual/automated comparison; optional figure validation |
 | 7 Package | `README.md`, `run.sh`, `.gitignore` | `references/07_package.md` | Write README, entrypoint script, and gitignore |
 
 State rules:
 
+- No `reproduction_options.md`: create it before starting Phase 1, then log
+  `Phase 1 - INFO: reproduction options initialized`.
 - No `execution_log.md`: start Phase 1.
 - Last log is `Phase N - SUBMITTED: ...`: check `.task_status/` and task logs.
 - Last log is `Phase N - COMPLETED: ...` and output exists: start Phase N+1.
@@ -78,6 +82,7 @@ config inheritance.
 
 Key state files:
 
+- `reproduction_options.md`
 - `execution_log.md`
 - `.task_status/{task}.status`, `.pid`, `.pgid`, `.log`
 - `01_plan/plan.md`
@@ -114,6 +119,70 @@ queries unless the result affects future work.
 SUBMITTED entries must record the task log file path so future agents can
 inspect it (use `async_submit.sh -L` or `append_log.sh -o`).
 
+## Global Options
+
+`reproduction_options.md` is created once before Phase 1 and is part of the
+reproduction state. Every phase must read it before making figure-related
+decisions. Later agents may change it only after explicit user approval, and
+must log the change with the reason. If the agent asks the user for startup
+options, record the exact decision in this file; if no question is asked,
+record the conservative agent default and the capability assumption behind it.
+
+Template:
+
+```markdown
+# Reproduction Options
+
+## Figure Reproduction
+| Field | Value |
+|-------|-------|
+| Mode | off / generate-only / visual-validate |
+| Locked | yes |
+| Initialized By | agent/user |
+| Initialized At | YYYY-MM-DD |
+| Reason | ... |
+
+## Decision Record
+| Field | Value |
+|-------|-------|
+| Decision Source | user / agent-default |
+| User Prompt | exact prompt or N/A |
+| User Choice | off / generate-only / visual-validate / N/A |
+| Agent Default | off / generate-only / visual-validate / N/A |
+| Capability Assumption | current agent has / lacks reliable visual multimodal capability |
+| Decision Time | YYYY-MM-DD HH:MM TZ |
+| Change Policy | explicit user approval required |
+
+## Capability Requirements
+| Phase | Requires Visual Multimodal Capability | Reason |
+|-------|---------------------------------------|--------|
+| 1 Reader | yes/no | Figure image and panel understanding |
+| 5 Run | no | Plotting code execution can be non-visual |
+| 6 Validate | yes/no | Visual figure comparison |
+
+## PDF Markdown Extraction
+| Field | Value |
+|-------|-------|
+| Required | yes |
+| Output Directory | 01_plan/paper_markdown/ |
+| Tool | available PDF-to-Markdown parser |
+```
+
+Figure mode rules:
+
+- Startup decisions are state, not chat context. Record user choices or
+  agent-default choices in `Decision Record` before Phase 1 extraction begins.
+- `visual-validate` is the default only when the initializing agent/model has
+  reliable visual multimodal capability. Phase 1 and Phase 6 must then be run
+  by visual multimodal agents; otherwise stop and report the capability block.
+- `off` is the default when the initializing agent/model lacks visual
+  multimodal capability. Do not infer figure patterns from images and do not
+  perform figure-level validation.
+- `generate-only` is a user-approved non-visual fallback for running available
+  plotting code and saving figures. It is not evidence of visual figure
+  reproduction unless later upgraded by a visual multimodal agent with user
+  approval.
+
 ## Helper Scripts
 
 Resolve scripts from this skill's `scripts/` directory.
@@ -140,8 +209,8 @@ Async task names should use `{phase}_{action}_{instance}`, for example
 - All phase artifacts, intermediate files, and logs must be stored inside that
   phase's own output directory (e.g., logs for Phase 3 go under
   `03_provision/`, never at the workspace root). Only `execution_log.md`,
-  `.task_status/`, and the final `README.md`/`run.sh`/`.gitignore` live at the
-  `repro-data/` root.
+  `reproduction_options.md`, `.task_status/`, and the final
+  `README.md`/`run.sh`/`.gitignore` live at the `repro-data/` root.
 - Commit meaningful state changes inside `repro-data/`; never commit files
   outside that Git repository.
 - Check whether phase outputs already exist before writing them.

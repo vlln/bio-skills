@@ -11,6 +11,8 @@
 ## Input
 - `01_plan/plan.md` — 论文信息和复现目标
 - `06_validate/report.md` — 验证结论和评分
+- `06_validate/figure_comparison.md` — optional figure generation/validation
+  report, when present
 - 所有 phase 的输出目录和文件
 
 ## Output
@@ -37,6 +39,13 @@
 ## Reproduction Verdict
 
 [Validation summary from report.md, including key scores and notable deviations]
+
+## Figure Reproduction
+
+[Summarize the locked global figure reproduction mode from
+reproduction_options.md. If figures were generated or validated, summarize the
+generated figure directory and figure_comparison.md result. If not enabled,
+state the reason from report.md without treating it as a failure.]
 
 ## System Requirements
 
@@ -72,14 +81,18 @@ repro-data/
 ├── README.md
 ├── run.sh
 ├── .gitignore
+├── reproduction_options.md
 ├── 01_plan/plan.md
+├── 01_plan/paper_markdown/
 ├── 02_bootstrap/bootstrap.md
 ├── 03_provision/provision.md
 ├── 04_data/data_manifest.md
 ├── 05_run/main.nf
 ├── 05_run/run_results.md
 ├── 05_run/results/
+├── 05_run/figures/                 # optional
 ├── 06_validate/report.md
+├── 06_validate/figure_comparison.md # optional
 └── execution_log.md
 ```
 
@@ -170,10 +183,13 @@ work/
 
 1. 读取 `01_plan/plan.md` 的标题、DOI、Paper Understanding
 2. 读取 `06_validate/report.md` 的 Verdict、Score、Deviations
-3. 读取 `02_bootstrap/bootstrap.md` 提取系统要求
-4. 从各 phase 产出推断目录结构
-5. 编写 `README.md`、`run.sh` 和 `.gitignore`
-6. Git commit
+3. 读取 `reproduction_options.md` 的全局 figure reproduction mode
+4. 如果存在 `06_validate/figure_comparison.md`, 摘要关键图级结果；不存在则从
+   report.md 记录未启用原因
+5. 读取 `02_bootstrap/bootstrap.md` 提取系统要求
+6. 从各 phase 产出推断目录结构
+7. 编写 `README.md`、`run.sh` 和 `.gitignore`
+8. Git commit
 
 ## Rules
 
