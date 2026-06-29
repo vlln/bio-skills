@@ -24,8 +24,7 @@ Output Language 编写。模板字段名、代码、路径、URL 和状态值不
 
 | 模式 | 含义 | 允许的声明 |
 |------|---------|----------------|
-| `off` | 未请求图表验证，或对此复现无意义。 | 仅度量和非视觉科学检查。 |
-| `generate-only` | 图表文件已在 Phase 5 生成，但不执行视觉比较。 | 仅文件存在性、绘图溯源和底层数据检查。 |
+| `generate` | 图表文件已在 Phase 5 生成，但不执行视觉比较。 | 仅文件存在性、绘图溯源和底层数据检查。 |
 | `visual-validate` | 视觉多模态模型比较复现图表图像与原文图表图像。 | 带证据的 panel 级图像到图像视觉模式和定性相似性声明。 |
 
 硬性规则：不具备视觉多模态能力的 agent 不得声称视觉相似性、panel 级一致性、
@@ -196,7 +195,7 @@ BLOCKED 在评分前判定：当数据受限、代码缺失、权限不足或外
   "checks_total": 12,
   "checks_scored": 11,
   "checks_na": 1,
-  "figure_reproduction_mode": "generate-only",
+  "figure_reproduction_mode": "generate",
   "figure_validation_status": "not enabled/generated/partial/blocked/validated",
   "weight_adjustments": {}
 }
@@ -214,7 +213,7 @@ Manual 检查由 agent 审查后填入同一结构。
 ## Mode
 | Field | Value |
 |-------|-------|
-| Figure Reproduction Mode | off / generate-only / visual-validate |
+| Figure Reproduction Mode | generate / visual-validate |
 | Figure Validation Status | not enabled / generated / partial / blocked / validated |
 | Visual Multimodal Capability | yes / no |
 | Paper Figure Source | PDF / HTML / supplement / source-data-only / N/A |
@@ -229,7 +228,7 @@ Manual 检查由 agent 审查后填入同一结构。
 描述 panel 级模式一致性、主要偏差，以及哪些科学结论被支持或不被支持。]
 
 ## Non-Visual Figure Checks
-[在 generate-only 模式下使用此节，记录绘图溯源、输入数据、计算的趋势/排序/重叠
+[在 generate 模式下使用此节，记录绘图溯源、输入数据、计算的趋势/排序/重叠
 检查和文件存在性。这些检查不能在 visual-validate 模式下替代图像到图像验证。]
 ```
 
@@ -245,7 +244,7 @@ Manual 检查由 agent 审查后填入同一结构。
 | Status | REPRODUCED / PARTIAL / BLOCKED / FAILED |
 | Reproducibility Score | XX / 100 |
 | Checks Scored | X / Y（Z N/A） |
-| Figure Reproduction Mode | off / generate-only / visual-validate |
+| Figure Reproduction Mode | generate / visual-validate |
 | Figure Validation Status | not enabled / generated / partial / blocked / validated |
 | Date | YYYY-MM-DD |
 
@@ -274,7 +273,7 @@ Manual 检查由 agent 审查后填入同一结构。
 
 | Field | Value |
 |-------|-------|
-| Global Mode | off / generate-only / visual-validate |
+| Global Mode | generate / visual-validate |
 | Validation Status | not enabled / generated / partial / blocked / validated |
 | Generated Figures | path or N/A |
 | Original Figure Images | path(s) from 01_plan/paper_markdown or N/A |
@@ -312,7 +311,7 @@ Manual 检查由 agent 审查后填入同一结构。
 - 检查项定义是 Phase 6 的第一步，必须在执行对比前完成。检查项列表写入 `06_validate/checks_plan.md` 或直接写入 report.md 的 Evidence Compared 表。
 - Figure validation 是可选增强层，不是 Phase 6 完成的必要条件。
 - Figure validation mode 必须来自 `reproduction_options.md`；Phase 6 不得自行开启、关闭或升级。
-- 当全局模式为 `off` 或 `generate-only` 时，即使存在图片也不得执行视觉比较。
+- 当全局模式为 `generate` 时，即使存在图片也不得执行视觉比较。
 - 当全局模式为 `visual-validate` 且当前 agent/model 不具备视觉多模态能力时，
   将 figure validation status 记为 `blocked`，并报告能力不匹配；不得临时降级或编造视觉相似性结论。
 - `visual-validate` 模式在具备视觉能力且原图/复现图可用时必须产生

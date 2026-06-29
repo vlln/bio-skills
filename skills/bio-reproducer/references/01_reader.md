@@ -238,13 +238,11 @@ Phase 1 不得做出视觉相似性判断。
     时间和能力假设写入 `Decision Record`；若未询问用户，必须记录 agent
     default 和保守原因。
 17. **Figure inventory 必填条件** - 当全局模式为 `visual-validate` 或
-    `generate-only` 时，对复现目标中的关键 figure/panel 必须记录
+    `generate` 时，对复现目标中的关键 figure/panel 必须记录
     original extracted image、caption/source、source data、作者绘图代码、
     notebook、图类型和期望科学模式；缺失则写 "Not specified" 或
     "Not found after checking [specific pages]"。
 18. **不做视觉判断** - P1 只登记图表信息和可用资源，不判断原图与潜在复现图是否相似。
-    若全局模式为 `off`，不得从提取图片中推断未在文字、caption 或 source data
-    中出现的模式。
 19. **页面附件必查** - 对预印本/出版商页面的 supplementary tab、`media-*`、
     `MOESM*`、`DC*`、`supplements/*` 附件必须检查；PDF 文本缺少直链不等于
     附件不存在
@@ -265,7 +263,7 @@ P1 完成前必须在工作区或网页内容中完成一次资源完整性检�
 - `Source Files Reviewed` 包含 article landing page 和 supplementary material
   page，或解释为什么无法访问。
 - `Resource Locations` 包含所有论文声明的数据、代码、协议、仓库和小型表格。
-- 当全局图复现模式不是 `off` 时，`Figure Reproduction Inventory` 覆盖所有
+- `Figure Reproduction Inventory` 覆盖所有
   复现目标中的关键 figure/panel，并记录 original extracted image、source
   data、author plotting code/notebook 和缺失项。
 - `External Identifier Records` 区分论文 DOI、代码/数据 DOI、版本 DOI 和

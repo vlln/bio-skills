@@ -113,7 +113,7 @@ metadata:
 ## Figure Reproduction
 | Field | Value |
 |-------|-------|
-| Mode | off / generate-only / visual-validate |
+| Mode | generate / visual-validate |
 | Locked | yes |
 | Initialized By | agent/user |
 | Initialized At | YYYY-MM-DD |
@@ -124,8 +124,8 @@ metadata:
 |-------|-------|
 | Decision Source | user / agent-default |
 | User Prompt | exact prompt or N/A |
-| User Choice | off / generate-only / visual-validate / N/A |
-| Agent Default | off / generate-only / visual-validate / N/A |
+| User Choice | generate / visual-validate / N/A |
+| Agent Default | generate / visual-validate / N/A |
 | Capability Assumption | current agent has / lacks reliable visual multimodal capability |
 | Decision Time | YYYY-MM-DD HH:MM TZ |
 | Change Policy | explicit user approval required |
@@ -157,9 +157,9 @@ metadata:
 图表模式规则：
 
 - 启动决策是状态，不是聊天上下文。在 Phase 1 提取开始前，将用户选择或 agent 默认选择记录在 `Decision Record` 中。
-- `visual-validate` 仅在初始化 agent/model 具备可靠的视觉多模态能力时作为默认值。Phase 1 和 Phase 6 必须由视觉多模态 agent 执行；否则停止并报告能力阻塞。
-- `off` 是初始化 agent/model 缺乏视觉多模态能力时的默认值。不从图像推断图表模式，不执行图表级验证。
-- `generate-only` 是用户批准的非视觉 fallback，用于运行可用的绘图代码并保存图表。除非后续由具备视觉多模态能力的 agent 经用户批准升级，否则不构成视觉图表复现的证据。
+- `generate` 是默认模式。所有阶段应尝试运行可用的绘图代码并保存图表，但不做视觉相似性判断。此模式不需要视觉多模态能力。
+- `visual-validate` 仅在初始化 agent/model 具备可靠的视觉多模态能力且用户批准时使用。Phase 1 和 Phase 6 必须由视觉多模态 agent 执行；否则停止并报告能力阻塞。此模式下，Phase 6 对原图与复现图做 panel 级视觉比较。
+- 不管哪种模式，图表生不出来就记 `blocked`，不影响其他验证。
 
 产出语言规则：
 

@@ -25,11 +25,10 @@ Phase 5 读取已锁定的全局模式并报告其行为。不得自行启用、
 
 | 模式 | 含义 |
 |------|---------|
-| `off` | 不生成复现图表。 |
-| `generate-only` | 运行作者绘图代码或编写数据驱动的绘图代码并保存图表，但不做视觉相似性声明。 |
+| `generate` | 运行作者绘图代码或编写数据驱动的绘图代码并保存图表，但不做视觉相似性声明。 |
 | `visual-validate` | 生成图表供 Phase 6 进行视觉多模态验证；仅在具备视觉多模态验证能力时使用。 |
 
-如果全局模式为 `generate-only` 或 `visual-validate`，仅当 `01_plan/plan.md`
+两种模式下均尝试生成图表，仅当 `01_plan/plan.md`
 的 `Figure Reproduction Inventory` 包含足够信息，能从记录输入或运行输出中
 创建数据驱动图表时才生成图表。如果所需数据、代码、环境或权限缺失，
 在 `run_results.md` 中将图表生成状态记录为 `blocked`。
@@ -56,7 +55,7 @@ agent 必须尝试运行作者代码或记录阻止执行的具体不兼容性�
    宿主机网络检测子网冲突；若不通或冲突则在 `run_results.md` 记录并警告用户。
 7. 通过 `async_submit.sh` 运行 `nextflow run main.nf -resume`。
 8. 监控 `.task_status/`、Nextflow run ID、workdir 和日志；不凭耗时长短猜测状态。
-9. 若全局 mode 为 `generate-only` 或 `visual-validate`，优先运行作者绘图代码；
+9. 优先运行作者绘图代码；
    只有记录具体失败或不兼容后才编写 fallback 绘图执行单元，并保存脚本、输入表和图像。
 10. 写入 `run_results.md`。
 
@@ -92,7 +91,7 @@ agent 必须尝试运行作者代码或记录阻止执行的具体不兼容性�
 ## Figure Generation
 | Field | Value |
 |-------|-------|
-| Global Mode | off/generate-only/visual-validate |
+| Global Mode | generate/visual-validate |
 | Generation Status | not enabled/generated/partial/blocked |
 | Figures Directory | figures/ or N/A |
 | Plotting Source | author code / author notebook / handwritten fallback / N/A |
@@ -118,8 +117,7 @@ Trace/report files: reports/...
 - 不要把论文分析逻辑无根据地重写为 Nextflow DSL；优先调用论文指定脚本、命令、notebook 或已有 workflow。
 - 如果论文已有 Nextflow pipeline，优先复用或包裹它；如果论文使用 Snakemake/R/Python/shell，将其作为具体执行单元编排。
 - 记录每个主要 pipeline step 的输入、输出、容器/环境、状态和关键指标。
-- 图表生成由全局配置控制；未启用时不影响 Phase 5 完成，但必须在
-  `run_results.md` 写明 `Global Mode: off` 和原因。
+- 图表生成由全局配置控制；必须在 `run_results.md` 写明 `Global Mode` 和图表生成状态。
 - Phase 5 不需要视觉多模态能力；它可以执行绘图代码，但不能判断图像内容。
 - 如果作者提供了绘图代码、notebook 或 figure script，Phase 5 必须优先运行；
   只有在记录具体失败、依赖缺失、输入缺失、版本不兼容、硬编码路径无法合理修复
