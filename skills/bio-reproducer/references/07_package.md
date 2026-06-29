@@ -1,23 +1,27 @@
 # Phase 7: Package
 
-## Goal
+## 目标
 将通过验证的复现产出打包为可交付状态：写 README 和顶层入口脚本，
 使他人 clone 后可以理解复现内容并一键运行。
 
-## Prerequisites
+## 前置条件
 - `06_validate/report.md` 存在且 Verdict 为 REPRODUCED 或 PARTIAL
 - FAILED 或 BLOCKED 状态不执行本阶段
 
-## Input
+## 输入
 - `01_plan/plan.md` — 论文信息和复现目标
 - `06_validate/report.md` — 验证结论和评分
-- `06_validate/figure_comparison.md` — optional figure generation/validation
-  report, when present
+- `06_validate/figure_comparison.md` — 可选的图表生成/验证报告（如存在）
+- `reproduction_options.md` — Output Language 配置
 - 所有 phase 的输出目录和文件
 
-## Output
+**产出语言**：`README.md`、`run.sh`（注释和 echo 输出）、`.gitignore`（注释）中所有
+标题、章节名、描述文字和表格内容必须使用 `reproduction_options.md` 中配置的
+Output Language 编写。模板字段名、代码、路径、URL 和状态值不受语言配置影响。
 
-| File | Purpose |
+## 输出
+
+| 文件 | 用途 |
 |------|---------|
 | `README.md` | 项目总览、快速开始、目录结构 |
 | `run.sh` | 顶层入口脚本，检查环境并引导执行 |
@@ -34,44 +38,43 @@
 
 ## Paper Summary
 
-[2-3 sentences from plan.md Paper Understanding]
+[2-3 句话，来自 plan.md 的 Paper Understanding]
 
 ## Reproduction Verdict
 
-[Validation summary from report.md, including key scores and notable deviations]
+[来自 report.md 的验证摘要，包含关键分数和显著偏差]
 
 ## Figure Reproduction
 
-[Summarize the locked global figure reproduction mode from
-reproduction_options.md. If figures were generated or validated, summarize the
-generated figure directory and figure_comparison.md result. If not enabled,
-state the reason from report.md without treating it as a failure.]
+[来自 reproduction_options.md 的已锁定全局图表复现模式摘要。
+如果图表已生成或验证，摘要生成图表目录和 figure_comparison.md 结果。
+如果未启用，从 report.md 说明原因，但不将其视为失败。]
 
 ## System Requirements
 
-- OS: [from bootstrap.md]
-- Container runtime: [Docker / Singularity / Apptainer]
-- Nextflow: [version]
-- Other: [disk space, memory, network]
+- OS: [来自 bootstrap.md]
+- 容器运行时: [Docker / Singularity / Apptainer]
+- Nextflow: [版本]
+- 其他: [磁盘空间、内存、网络]
 
 ## Quick Start
 
 ```bash
-# 1. Clone and enter
+# 1. Clone 并进入目录
 git clone <repo> && cd repro-data
 
-# 2. Check prerequisites
+# 2. 检查前置条件
 bash run.sh check
 
-# 3. Run reproduction (all phases)
+# 3. 运行复现（所有阶段）
 bash run.sh all
 
-# Or step by step:
-bash run.sh bootstrap   # Phase 2: install system dependencies
-bash run.sh provision   # Phase 3: pull/build containers
-bash run.sh data        # Phase 4: download data
-bash run.sh run         # Phase 5: execute analysis
-bash run.sh validate    # Phase 6: validate results
+# 或逐步运行：
+bash run.sh bootstrap   # Phase 2: 安装系统依赖
+bash run.sh provision   # Phase 3: 拉取/构建容器
+bash run.sh data        # Phase 4: 下载数据
+bash run.sh run         # Phase 5: 运行分析
+bash run.sh validate    # Phase 6: 验证结果
 ```
 
 ## Directory Structure
@@ -90,16 +93,15 @@ repro-data/
 ├── 05_run/main.nf
 ├── 05_run/run_results.md
 ├── 05_run/results/
-├── 05_run/figures/                 # optional
+├── 05_run/figures/                 # 可选
 ├── 06_validate/report.md
-├── 06_validate/figure_comparison.md # optional
+├── 06_validate/figure_comparison.md # 可选
 └── execution_log.md
 ```
 
 ## Notes
 
-[Known issues, data access requirements, expected runtime, anything a
-new user needs to know before starting.]
+[已知问题、数据访问要求、预计运行时间，新用户需要了解的任何内容。]
 ```
 
 ### run.sh 要求
@@ -108,9 +110,9 @@ new user needs to know before starting.]
 - 所有路径相对于 `repro-data/` 根目录
 - 不接受硬编码路径；通过脚本所在目录推断 `repro-data/` 根
 - 提供以下子命令：
-  - `check` — 检查系统前提条件（nextflow、docker/singularity、磁盘空间等）
+  - `check` — 检查系统前置条件（nextflow、docker/singularity、磁盘空间等）
   - `all` — 串行运行所有可执行 phase（提示用户确认）
-  - `bootstrap`, `provision`, `data`, `run`, `validate` — 分别运行各 phase
+  - `bootstrap`、`provision`、`data`、`run`、`validate` — 分别运行各 phase
 - 每个 phase 子命令应打印说明（该 phase 做什么、预计耗时）再执行
 - Phase 1 不在 run.sh 中重跑；README 指向已有的 plan.md
 - Phase 2-6 内部逻辑从各 phase 的产出中读取（如 main.nf、data_manifest.md），
@@ -124,17 +126,17 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
 check() {
-    echo "=== Checking prerequisites ==="
+    echo "=== 检查前置条件 ==="
     command -v nextflow >/dev/null 2>&1 || { echo "ERROR: nextflow not found"; exit 1; }
     command -v docker >/dev/null 2>&1 || command -v singularity >/dev/null 2>&1 || \
         { echo "ERROR: docker or singularity required"; exit 1; }
-    echo "OK: prerequisites satisfied"
+    echo "OK: 前置条件满足"
 }
 
 all() {
-    echo "This will run all reproduction phases."
-    echo "Expected time: [fill from bootstrap or experience]"
-    read -p "Continue? [y/N] " yn
+    echo "此操作将运行所有复现阶段。"
+    echo "预计时间: [根据 bootstrap 或经验填写]"
+    read -p "继续? [y/N] " yn
     case "$yn" in [Yy]*) ;; *) exit 0;; esac
     bootstrap
     provision
@@ -145,11 +147,11 @@ all() {
 
 bootstrap() {
     echo "=== Phase 2: Bootstrap ==="
-    echo "Installing system dependencies..."
-    # Read and execute from 02_bootstrap/bootstrap.md
+    echo "安装系统依赖..."
+    # 从 02_bootstrap/bootstrap.md 读取并执行
 }
 
-# ... provision, data, run, validate stubs ...
+# ... provision, data, run, validate 桩代码 ...
 
 "${@:-check}"
 ```
@@ -159,39 +161,39 @@ bootstrap() {
 至少忽略以下临时文件和目录：
 
 ```gitignore
-# Task execution logs
+# 任务执行日志
 *.log
 .task_status/
 
-# Nextflow work directories (large intermediate files)
+# Nextflow work 目录（大型中间文件）
 work/
 .nextflow/
 .nextflow.log*
 
-# Container / Singularity images
+# 容器 / Singularity 镜像
 *.sif
 *.img
 
-# Editor / OS artifacts
+# 编辑器 / OS 产物
 *~
 .DS_Store
 ```
 
 如有 phase 特定的临时产出也应一并忽略。
 
-## Workflow
+## 工作流程
 
 1. 读取 `01_plan/plan.md` 的标题、DOI、Paper Understanding
 2. 读取 `06_validate/report.md` 的 Verdict、Score、Deviations
-3. 读取 `reproduction_options.md` 的全局 figure reproduction mode
-4. 如果存在 `06_validate/figure_comparison.md`, 摘要关键图级结果；不存在则从
+3. 读取 `reproduction_options.md` 的全局图表复现模式
+4. 如果存在 `06_validate/figure_comparison.md`，摘要关键图级结果；不存在则从
    report.md 记录未启用原因
 5. 读取 `02_bootstrap/bootstrap.md` 提取系统要求
 6. 从各 phase 产出推断目录结构
 7. 编写 `README.md`、`run.sh` 和 `.gitignore`
 8. Git commit
 
-## Rules
+## 规则
 
 - `run.sh` 中的路径全部为相对路径或从 `$ROOT` 推导，禁止硬编码绝对路径
 - README 必须包含足够信息让未读论文的人也能理解复现了什么
@@ -199,7 +201,7 @@ work/
 - 如 Phase 2-5 使用了 `async_submit.sh`，run.sh 应复用同样的 `nextflow -resume` 命令
 - Phase 7 不重跑任何分析，只做打包和文档
 
-## Completion
+## 完成
 - 输出 `README.md`、`run.sh` 和 `.gitignore` 在 `repro-data/` 根目录
 - 记录 `Phase 7 - COMPLETED: reproduction packaged`
 - Git commit
