@@ -30,7 +30,7 @@ Query the [BioContainers Registry](https://biocontainers.pro/) through the GA4GH
 | Inspect (version) | Show details for a specific version, including the full image tag. |
 | List versions | Enumerate all known upstream versions for a tool. |
 
-### Workflow
+## Workflow
 
 1. Search first when the exact BioContainers tool name is uncertain.
 2. Inspect a tool for registry metadata and the latest version summary.

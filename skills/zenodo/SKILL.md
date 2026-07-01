@@ -14,10 +14,6 @@ requires:
 
 Interact with the Zenodo API for public record search/download and authenticated deposit management.
 
-## When To Use
-
-Use this skill for Zenodo-specific work: finding public records, downloading record files, listing deposits, creating draft deposits, editing metadata, uploading files, deleting drafts, and publishing deposits.
-
 ## Trigger Keywords
 
 - **zenodo**: Any mention of Zenodo, Zenodo records, Zenodo deposits, or Zenodo API.
@@ -27,11 +23,10 @@ Use this skill for Zenodo-specific work: finding public records, downloading rec
 
 ## Workflow
 
-1. Use the bundled CLI helper to perform all Zenodo operations.
-2. For public records, search and download without authentication.
-3. For authenticated operations (create, list, show, update, upload, delete, publish), require `ZENODO_ACCESS_TOKEN`.
-4. Default to `--sandbox` unless the user explicitly requests production.
-5. Before publishing, confirm the deposit ID, metadata, and uploaded files with the user unless they already gave explicit publish approval.
+1. For public records, search and download without authentication.
+2. For authenticated operations (create, list, show, update, upload, delete, publish), require `ZENODO_ACCESS_TOKEN`.
+3. Default to `--sandbox` unless the user explicitly requests production.
+4. Before publishing, confirm the deposit ID, metadata, and uploaded files with the user unless they already gave explicit publish approval.
 
 ## Capabilities
 
@@ -47,24 +42,15 @@ Use this skill for Zenodo-specific work: finding public records, downloading rec
 | Delete a deposit | Delete a draft deposit by ID. |
 | Publish a deposit | Publish a deposit by ID. |
 
-Global options: `--sandbox`, `--no-verify`, and `--help`.
-
 ## Gotchas
 
 - **Sandbox first**: Always default to `--sandbox` unless the user explicitly requests production. Sandbox and production are separate Zenodo instances with their own tokens.
 - **Publishing is irreversible**: Once a deposit is published, its metadata and files cannot be changed. A DOI is minted at publish time.
 - **Draft expiration**: Unpublished drafts on Zenodo may expire after a period of inactivity. Do not assume drafts persist indefinitely.
-- **Token separation**: Sandbox and production tokens are different. A sandbox token from `https://sandbox.zenodo.org/account/settings/applications` does not work on production, and vice versa.
+- **Token separation**: Sandbox and production tokens are different. Create sandbox tokens at `https://sandbox.zenodo.org/account/settings/applications`, production tokens at `https://zenodo.org/account/settings/applications`.
 - **File uploads to drafts only**: Files can only be uploaded to unpublished drafts. Once published, the record is read-only.
 - **Metadata requirements**: Zenodo requires at minimum a title, description, and creators for publishing. Do not invent missing metadata — ask the user.
 - **Rate limiting**: Zenodo enforces API rate limits. For bulk operations, add delays between requests.
-
-## Rules
-
-- Treat production write operations as persistent external changes.
-- Never invent missing deposit metadata; ask for required title, description, creators, or files when absent.
-- Do not use this skill for non-Zenodo repositories or browser-only workflows.
-- For production tokens, users can create tokens at `https://zenodo.org/account/settings/applications`; for sandbox tokens, use `https://sandbox.zenodo.org/account/settings/applications`.
 
 ## Output
 
