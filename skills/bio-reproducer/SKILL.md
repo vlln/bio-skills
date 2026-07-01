@@ -1,20 +1,15 @@
 ---
 name: bio-reproducer
-description: 引导 agent 通过分阶段报告、数据清单、异步长时间任务、Nextflow 编排和验证，在项目工作区内完成可复现的生物信息学论文复现。
-compatibility: 需要 Bash 和 Python 3 运行辅助脚本；Nextflow、容器运行时和网络访问仅在需要它们的阶段使用。
+description: 当需要在项目工作区内复现生物信息学论文时使用此 skill。通过分阶段报告、数据清单、异步长时间任务和 Nextflow 编排，引导完成可复现的论文复现。
+license: MIT
 metadata:
-  skit:
-    version: 0.4.2
-    requires:
-      bins:
-        - bash
-        - python3
-        - paperutils
-    keywords:
-      - bioinformatics
-      - reproducibility
-      - nextflow
-      - paper-reproduction
+  author: vlln
+  version: "0.1.0"
+requires:
+  bins:
+    - bash
+    - python3
+    - paperutils
 ---
 
 # Bio-Reproducer
@@ -99,7 +94,7 @@ metadata:
 | `ROLLBACK` | 验证或诊断要求返回更早阶段。 |
 | `INFO` | 影响后续 agent 的重要上下文。 |
 
-记录阶段开始/完成、异步提交、任务状态变更、失败和回滚。不记录纯读取、目录创建或简单环境查询，除非其结果影响后续工作。SUBMITTED 条目必须记录任务日志文件路径，以便后续 agent 检查（使用 `async_submit.sh -L` 或 `append_log.sh -o`）。
+记录阶段开始/完成、异步提交、任务状态变更、失败和回滚。不记录纯读取、目录创建或简单环境查询，除非其结果影响后续工作。SUBMITTED 条目必须记录任务日志文件路径，以便后续 agent 检查。
 
 ## 全局选项
 
@@ -170,23 +165,14 @@ metadata:
 - 脚本文件（如 `run.sh`）中的注释和 echo 输出应跟随产出语言。
 - 语言在 Phase 1 初始化时锁定，后续阶段不得更改。
 
-## 辅助脚本
+## 辅助工具
 
-从本 skill 的 `scripts/` 目录解析脚本。
+本 skill 的 `scripts/` 目录提供以下辅助能力：
 
-```bash
-async_submit.sh p4_data_fetch_batch1 "nextflow run data.nf -resume" . -l p4_data_fetch_batch1.log -L execution_log.md
-# -L 标志自动追加一条带日志文件路径的 SUBMITTED 条目。
-# 对于非异步任务条目，使用普通 append_log.sh：
-append_log.sh "Phase 3 - COMPLETED: provision ready" . -p 3 -s COMPLETED
-check_status.sh p4_data_fetch_batch1 . status
-check_status.sh ignored . list
-check_status.sh p4_data_fetch_batch1 . log
-paperutils get 10.1234/example --json
-paperutils explain PRJEB12345 --json
-```
-
-异步任务名称应使用 `{phase}_{action}_{instance}` 格式，例如 `p4_data_fetch_batch1` 或 `p5_run_retry_001`。
+- **异步任务提交**：提交长时间运行的任务（安装、下载、容器拉取/构建、Nextflow 运行），自动在 execution_log.md 中追加 SUBMITTED 条目并附带任务日志路径。任务名称格式：`{phase}_{action}_{instance}`，如 `p4_data_fetch_batch1`。
+- **日志追加**：向 execution_log.md 追加状态条目。
+- **任务状态检查**：检查异步任务的状态、PID、进程组和日志输出。
+- **论文元数据查询**：通过 DOI 或 accession 标识符提取论文元数据。
 
 ## 规则
 
@@ -194,7 +180,7 @@ paperutils explain PRJEB12345 --json
 - 所有阶段产物、中间文件和日志必须存放在该阶段自身的输出目录中（例如 Phase 3 的日志归入 `03_provision/`，不得放在工作区根目录）。只有 `execution_log.md`、`reproduction_options.md`、`.task_status/` 以及最终的 `README.md`/`run.sh`/`.gitignore` 存放在 `repro-data/` 根目录。
 - 在 `repro-data/` 内提交有意义的状态变更；绝不提交该 Git 仓库外的文件。
 - 写入阶段输出前检查是否已存在。
-- 在 Phase 2-5 中，通过 `async_submit.sh` 运行安装、下载、容器拉取/构建、Nextflow 运行以及其他长时间或不可预测的操作。
+- 在 Phase 2-5 中，使用异步提交辅助工具运行安装、下载、容器拉取/构建、Nextflow 运行以及其他长时间或不可预测的操作。
 - 同步命令允许用于状态读取、脚本生成、配置编辑和简短检查。
 - Phase 1 从论文中收集信息，并获取轻量级的引用资源，如补充文件、代码仓库、协议页面和元数据页面。不安装环境或下载分析规模的数据。
 - Phase 1 必须检查论文页面、补充材料标签页和版本化仓库记录；不得仅从 PDF 文本推断补充材料不存在。遵循 `references/01_reader.md` 中的资源完整性检查要求。
@@ -203,6 +189,17 @@ paperutils explain PRJEB12345 --json
 - 脚本和代码不得使用硬编码或绝对路径/参数。所有路径、阈值和可配置值必须从 plan.md、数据清单、环境变量或工作区内的相对路径推导。目标是让其他人 clone 仓库后无需编辑任何脚本即可复现。
 - 在判定长时间任务失败或成功之前，检查其任务状态、进程状态和日志。
 - 所有产出文件的自然语言必须遵循 `reproduction_options.md` 中配置的 Output Language。`zh` 模式下所有标题、章节名、描述文字和表格内容使用中文；`en` 模式下使用英文。代码、命令、路径、状态值和模板字段名不受此限制。
+
+## Gotchas
+
+- **Nextflow `-resume` 不检测 config 变更**：仅当进程的输入/脚本变化时才会重新运行。如果只修改了 `nextflow.config` 中的参数（如内存、CPU），缓存结果不会自动失效。需要手动删除相关进程的工作目录或使用 `-resume` 前确认变更范围。
+- **容器镜像标签可变**：Docker 标签如 `latest` 或 `v1.0` 可被覆盖。为可复现性，应通过 digest（`image@sha256:...`）固定镜像，或记录拉取时的确切 digest。
+- **补充数据链接失效**：论文补充材料 URL 经常失效。不要仅从 PDF 文本推断补充材料是否存在——必须检查论文的期刊页面、补充材料标签页和版本化仓库（Zenodo、Figshare、GitHub releases）。
+- **GEO/SRA/ENA 标识符不互通**：GEO accession（GSEXXXXX）、SRA accession（SRXXXXXX）和 ENA accession（PRJEBXXXXX）映射到不同的下载端点。确认数据实际存储在哪个数据库后再选择下载方式，不要根据 accession 前缀猜测。
+- **参考基因组版本未标注**：许多论文未明确说明使用的参考基因组具体版本（如 GRCh37 vs GRCh38、TAIR10 vs Araport11）。不同版本会产生不同的比对和定量结果。在 Phase 1 中应尽量从方法描述和代码仓库中推断并记录确切的参考基因组版本。
+- **预印本与正式版本差异**：确认论文为正式发表版本而非预印本。Methods 部分在 peer review 中可能被修改。始终以 DOI 指向的最终出版版本为准。
+- **Nextflow 默认资源可能不足**：Nextflow 进程的默认内存/CPU 配置可能与论文原始运行环境不同。内存不足会导致静默 OOM 终止，仅凭日志难以排查。在 Phase 3 中应为每个进程显式配置资源。
+- **认证数据访问**：部分数据仓库（dbGaP、EGA）需要认证令牌。如果数据需要受控访问，在 Phase 1 的 data_manifest 中标记为 `requires-auth`，不要自动尝试下载。
 
 ## 回滚
 

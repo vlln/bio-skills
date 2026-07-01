@@ -1,62 +1,52 @@
 ---
 name: biocontainers
-description: Search BioContainers, inspect bioinformatics container metadata, list available versions, and resolve full quay.io image tags through the GA4GH TRS API.
-compatibility: Requires Python 3 and network access to the BioContainers GA4GH TRS API.
+description: Use this skill when searching for bioinformatics containers, inspecting BioContainers metadata, listing available tool versions, or resolving full quay.io image tags through the GA4GH TRS API.
+license: MIT
 metadata:
-  skit:
-    version: 0.1.0
-    requires:
-      bins:
-        - python3
-    keywords:
-      - bioinformatics
-      - containers
-      - ga4gh-trs
-      - biocontainers
+  author: vlln
+  version: "0.1.0"
+requires:
+  bins:
+    - python3
 ---
 
 # Biocontainers Skill
 
-Query the [BioContainers Registry](https://biocontainers.pro/) through the bundled GA4GH Tool Registry Service (TRS) CLI.
+Query the [BioContainers Registry](https://biocontainers.pro/) through the GA4GH Tool Registry Service (TRS) API.
 
-## When To Use
+## Trigger Keywords
 
-Use this skill for BioContainers discovery tasks: finding tools by keyword, checking whether a named tool exists, listing its versions, and resolving the exact `quay.io/biocontainers/<tool>:<version>--<build>` image tag.
+- **Domain terms:** biocontainers, BioContainers, bioinformatics container, containerized bioinformatics tool
+- **Image references:** quay.io/biocontainers, bioinformatics Docker image
+- **API terms:** GA4GH TRS, TRS API, Tool Registry Service
+- **Workflow:** find bioinformatics tool container, look up container version, resolve image tag
 
-## Workflow
+## Capabilities
 
-1. Resolve this skill directory and run the bundled `scripts/biocontainers` helper from there; do not assume `biocontainers` is already on `PATH`.
-2. Search first when the exact BioContainers tool name is uncertain.
-3. Use `inspect <tool>` for registry metadata and the latest version summary.
-4. Use `inspect <tool>:<version>` when the user needs full image tags for a specific version.
-5. Use `versions <tool>` when the user only needs available upstream versions.
+| Capability | Description |
+|-----------|-------------|
+| Search | Find containers by keyword (e.g., tool name, function). |
+| Inspect | Show tool metadata and the latest version summary. |
+| Inspect (version) | Show details for a specific version, including the full image tag. |
+| List versions | Enumerate all known upstream versions for a tool. |
 
-## Commands
+### Workflow
 
-| Command | Description |
-|---------|-------------|
-| `scripts/biocontainers search <query> [--limit <n>]` | Search containers by keyword. |
-| `scripts/biocontainers inspect <tool>` | Show tool details and latest version summary. |
-| `scripts/biocontainers inspect <tool>:<version>` | Show specific version details and image tags. |
-| `scripts/biocontainers versions <tool>` | List known versions for a tool. |
+1. Search first when the exact BioContainers tool name is uncertain.
+2. Inspect a tool for registry metadata and the latest version summary.
+3. Inspect a specific version when the user needs full `quay.io/biocontainers/…` image tags.
+4. List versions when the user only needs available upstream versions.
 
-## Examples
+Prefer inspecting a specific version over listing versions when the final answer needs a runnable image reference.
 
-```bash
-scripts/biocontainers search bwa
-scripts/biocontainers search aligner --limit 10
-scripts/biocontainers inspect samtools
-scripts/biocontainers inspect bwa:0.7.17
-scripts/biocontainers versions blast
-```
+## Gotchas
 
-## Rules
-
-- Prefer `inspect <tool>:<version>` over `versions <tool>` when the final answer needs a runnable image reference.
-- Report full `quay.io/biocontainers/...` tags exactly as returned by the API.
-- Do not use this skill for generic Docker Hub searches or for running containers locally.
-- If the API endpoint must be overridden, set `BIOCONTAINERS_API_URL`; otherwise use the default `https://api.biocontainers.pro/ga4gh/trs/v2`.
+- **Version tags include build hashes.** A BioContainers image tag is not just a semantic version — it uses the format `<version>--<build>` (e.g., `0.7.17--h5bf99c6_12`). The `--` separator is part of the BioContainers convention.
+- **Multiple entries per tool.** Some tools have separate BioContainers entries from different conda channels. When a search returns multiple plausible tools, present the ambiguity and let the user choose.
+- **API version.** The BioContainers API follows GA4GH TRS **v2**, not v1. Endpoints and response schemas differ.
+- **API base URL.** The default endpoint is `https://api.biocontainers.pro/ga4gh/trs/v2`. Override with `BIOCONTAINERS_API_URL` only when necessary.
+- **Not for Docker Hub.** BioContainers images live on `quay.io`, not Docker Hub. Do not use this skill for generic Docker Hub searches or for running containers locally.
 
 ## Output
 
-Summarize the matching tool, relevant versions, and exact image tag or command the user can use next. Include uncertainty when a search returns multiple plausible tools.
+Summarize the matching tool, relevant versions, and the exact image tag or command the user can use next. Report full `quay.io/biocontainers/…` tags exactly as returned by the API. Include uncertainty when a search returns multiple plausible tools.
